@@ -136,30 +136,6 @@
   .game-layout[data-page=map] #game-nav {grid-template-columns:repeat(3,minmax(44px,1fr));width:140px;}
 }
 .bench-closeup,.bench-tray{display:none}
-@media (orientation:landscape) {
- .game-layout .camera[data-mode=work][data-touch-pane=work] #work-view {
-   grid-template-columns:minmax(0,1fr) clamp(212px,32vw,330px);
-   grid-template-rows:minmax(0,1fr);
- }
- .game-layout .camera[data-mode=work][data-touch-pane=work] .camera-shell {--tools:clamp(212px,32vw,330px)}
- .game-layout .camera[data-mode=work][data-touch-pane=work] :is(.work-board,#work-title,#work-steps){display:none!important}
- .game-layout .camera[data-mode=work][data-touch-pane=work] .bench-closeup {
-   display:grid;place-items:center;grid-area:1/1;min-width:0;min-height:0;overflow:hidden;
-   background:#5c613b url('workbench-background.png') center/cover;border:3px solid #7e593a;
- }
- .bench-closeup canvas{width:100%;height:100%;min-height:0;object-fit:contain;pointer-events:none;}
- .game-layout .camera[data-mode=work][data-touch-pane=work] .bench-tray {
-   display:flex;flex-direction:column;justify-content:center;grid-area:1/2;align-self:stretch;
-   margin-top:100px;background:#302627f2;border:1px solid #987448;border-radius:7px;padding:6px;min-height:0;
- }
- #bench-hint{font-size:14px;line-height:1.25;color:#ffe5af;margin-bottom:4px;}
- #bench-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
- #bench-choices button{min-width:0;min-height:50px;padding:3px;line-height:1.16;font-size:13px;background:#53412e;color:#fff4de;border:1px solid #c9a56e;touch-action:manipulation;}
- #bench-choices button:only-child{grid-column:span 2}
- #bench-choices button[aria-pressed=true]{background:#66703e;outline:2px solid #ffdf8d;outline-offset:-2px}
- #bench-choices button canvas{display:inline-block;width:34px;height:34px;vertical-align:middle;pointer-events:none}
-}
-
 /* The canvas is clipped by its own viewport. Both control rails sit outside it. */
 @media (orientation:landscape) {
  .game-layout[data-page=map] main {background:#292329;}
@@ -179,4 +155,44 @@
 @media (orientation:landscape){
  .game-layout[data-page=map] #shop-hud{display:none;}
  .game-layout[data-page=map] #rail-hud{display:block;position:fixed;z-index:2;right:var(--rail-right);top:var(--rail-top);width:var(--rail);font-size:12px;line-height:1.35;padding:4px;color:#38251d;border:6px solid #865623;border-image:url('dialogue-paper.png') 105 fill stretch;pointer-events:none;}
+}
+
+.game-layout .camera[data-mode=work][data-touch-pane=work] .camera-shell{background:#30272b;}
+.stage,.characters,.business-actions,.camera,#game-nav,.game-layout button{
+ -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.camera input,.camera textarea{-webkit-user-select:text;user-select:text;}
+.work-board,.workshop-overlay,.workshop-hotspot{touch-action:none;}
+
+#game-nav button[data-page]::before {
+  content: "";
+  display: inline-block;
+  width: clamp(22px, 4.8vh, 38px);
+  height: clamp(22px, 4.8vh, 38px);
+  vertical-align: middle;
+  background: url("menu-illustrations.webp") left top / 200% 200% no-repeat;
+}
+#game-nav button[data-page=warehouse]::before { background-position: right top; }
+#game-nav button[data-page=operations]::before { background-position: left bottom; }
+#game-nav button[data-page=settings]::before { background-position: right bottom; }
+
+#annex-room { width:min(92vw,820px); max-height:90dvh; padding:0; background:#372a29; color:#fff0c9; border:2px solid #bc9466; border-radius:12px; }
+#annex-room[open] { display:grid; grid-template-columns: 1.45fr 1fr; align-items:center; }
+#annex-room::backdrop { background:#170f12bf; }
+#annex-room section { padding:clamp(8px,2vw,20px); }
+.annex-bench { background:url('annex.webp') center / cover; min-height: min(60dvh,350px); display:grid; place-items:end center; }
+#annex-object { width:80%; max-height:40dvh; object-fit:contain; }
+#lobby-contract {color:#ffdf9b;}
+#network-modal [hidden]{display:none!important}
+#lobby-tabs{display:flex;gap:5px}
+#lobby-tabs [aria-pressed=true]{background:#766040;color:#fff3cc}
+#network-modal .network-shell{background:linear-gradient(90deg,#302424fa,#392d28ed),url('annex.webp') center/cover}
+@media(orientation:landscape) and (max-height:520px){
+ #network-modal{padding:3px}
+ #network-modal .network-shell{width:min(94vw,850px);padding:8px 16px;line-height:1.25}
+ .network-shell h2{margin:0 0 4px;font-size:19px}
+ #network-modal .close{top:5px;right:12px}
+ #network-modal input,#network-modal label,#network-modal p{margin:3px 0}
+ #network-modal button,#network-modal input{min-height:34px;padding:5px 10px}
+ #room-members{display:flex;gap:12px;flex-wrap:wrap}
 }

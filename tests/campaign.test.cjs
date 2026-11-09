@@ -1,0 +1,69 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ctx = vm.createContext({console});
+for (const file of ['base-engine','game','pipeline']) {
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file+'.js'),'utf8'), ctx);
+}
+const Game = ctx.ShopGame.Game;
+const game = new Game(() => .3);
+function tomorrow(g) {
+  g.closed = true;
+  assert(g.action('A','nextday'));
+}
+const legacy = game.snapshot();
+delete legacy.campaign;
+legacy.day = 12;
+assert.equal(Game.restore(legacy).campaign.start,12);
+game.day = 3;
+game.elapsed = 120;
+assert(game.spawn());
+const snake = game.customers[0];
+assert.equal(snake.species,'snake');
+snake.arrived = true;
+game.counterOwner = 'C';
+const q = game.quote(snake.id);
+assert.equal(q.maxRounds,2);
+assert(game.action('C','serve',{id:snake.id,price:q.price}));
+assert.equal(game.campaign.sales,0);
+const saved = Game.restore(game.snapshot());
+const purchased = saved.pending.find(i=>i.id===snake.item.id);
+assert.equal(purchased.unverified,true);
+assert.equal(saved.campaign.dealerWeek,1);
+for (const genuine of [true,false]) {
+  const play = Game.restore(saved.snapshot());
+  const i = play.pending.pop();
+  i.genuine = genuine;
+  const price = i.price;
+  play.jobs.finish={owner:'B',repair:{station:'finish',stage:'testing',item:i,testLeft:.1}};
+  play.tick(.2);
+  assert.equal(play.ready.at(-1).price, Math.round(price*(genuine?2.4:.25)));
+  assert(!play.ready.at(-1).unverified);
+}
+game.campaign.sales=640;
+game.display[0]={...game.makeItem(ctx.ShopGame.catalog[0]),status:'restored',askingPrice:180};
+assert(game.spawn('buy'));
+game.customers[0].arrived=true;
+const buyer=game.customers[0],sale=game.quote(buyer.id,0);
+assert(game.action('C','serve',{id:buyer.id,slot:0,price:sale.price}));
+assert(!game.action('C','serve',{id:buyer.id,slot:0,price:sale.price}));
+assert.equal(game.campaign.level,1);
+assert.equal(game.display.length,6);
+game.counterOwner=null;
+const order = game.makeItem(ctx.ShopGame.catalog.find(i=>i.kind===game.commissionKind()));
+game.ready.push({...order,status:'restored'});
+const payload={commission:true,itemId:order.id,day:game.day};
+assert(game.action('A','exhibit',payload));
+assert(!game.action('B','exhibit',payload));
+assert.equal(Game.restore(game.snapshot()).campaign.deliveredDay,3);
+while(game.day<8)tomorrow(game);
+assert.equal(game.campaign.target,1200);
+assert.equal(game.campaign.sales,0);
+while(game.day<15)tomorrow(game);
+assert.equal(game.campaign.level,1);
+assert(game.campaign.event.includes('미달'));
+game.creditSale(1200);
+assert.equal(game.campaign.level,2);
+assert.equal(game.tier,2);
+console.log('weekly goals, rewards, legacy saves, appraisal, duplicate trades and commissions passed');

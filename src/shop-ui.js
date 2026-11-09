@@ -31,7 +31,9 @@ $('cancel-repair').onclick=()=>{act('cancel');close();updatePanel()};
 for(const p of Object.keys(ShopGame.parts))$('order-'+p).onclick=()=>{act('order',{part:p});updatePanel()};
 $('nextday').onclick=()=>{act('nextday');updatePanel()};$('speed').onchange=e=>{speed=Number(e.target.value)||1};
 function put(id,text){if($(id).textContent!==text)$(id).textContent=text}
-function updatePanel(){if(pendingWork){if(game.getJob(pendingWork.station)?.repair.item.id===pendingWork.itemId)pendingWork=null;else if(Date.now()-pendingWork.at>12000){pendingWork=null;if(mode==='work')open('picker');say('인수를 확인하지 못했어요. 목록과 연결 상태를 확인하고 다시 선택해 주세요.')}}const hour=Math.floor(game.time),minute=Math.min(59,Math.floor((game.time-hour)*60));put('shop-hud',game.day+'일차 · '+String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')+' · '+game.period+' · '+game.money+'원');
+function updatePanel(){put('lobby-contract',game.campaignSummary());
+ $('visit-annex').hidden=!game.campaign.level;
+ if($('annex-room').open)updateAnnex();if(pendingWork){if(game.getJob(pendingWork.station)?.repair.item.id===pendingWork.itemId)pendingWork=null;else if(Date.now()-pendingWork.at>12000){pendingWork=null;if(mode==='work')open('picker');say('인수를 확인하지 못했어요. 목록과 연결 상태를 확인하고 다시 선택해 주세요.')}}const hour=Math.floor(game.time),minute=Math.min(59,Math.floor((game.time-hour)*60));put('shop-hud',game.day+'일차 · '+String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')+' · '+game.period+' · '+game.money+'원');
  put('rail-hud',$('shop-hud').textContent);
  put('queue','응대 손님 '+game.customers.length+' / 1명 · 수리 전 '+game.pending.length+'개 · 수리 완료 '+game.ready.length+'개 · 진열 '+game.display.filter(Boolean).length+'/'+game.capacity);put('customer',game.customers[0]?'맨 앞 손님 · '+(game.customers[0].type==='buy'?'진열품 구매':'고장품 매각'):'손님을 기다리고 있어요');
  put('stock',Object.entries(ShopGame.parts).map(([p,v])=>v.name+' '+game.stock[p]+'개').join(' · '));put('deliveries',game.deliveries.filter(d=>d.state!=='claimed').map(d=>ShopGame.parts[d.part].name+' '+(d.state==='arrived'?'입구 도착':Math.ceil(d.eta)+'초 후 도착')).join(' / ')||'배송 중인 부품 없음');
@@ -43,8 +45,8 @@ function updatePanel(){if(pendingWork){if(game.getJob(pendingWork.station)?.repa
  const q=c&&game.quote(c.id,selectedSlot);$('portrait').hidden=!c;if(c)$('portrait').src=window.GAME_ASSETS['portrait-'+c.species];
  $('counter-bg').style.filter=game.time>=19?'brightness(.55) saturate(.8)':game.time>=16?'sepia(.22) brightness(.9)':'none';
  const reaction=q?.reaction||'neutral';$('reaction').dataset.mood=reaction;put('reaction',q?.state==='agreed'?'가격에 동의':reaction==='negative'?'내 제안 거절 · 손님 역제안':'거래 제안');$('trade-kind').hidden=!c;put('trade-kind',c?.type==='repair'?'고장품 매입':'복원품 판매');
- put('counter-name',c?c.name+' · '+({dog:'강아지',rabbit:'토끼',mouse:'생쥐',parrot:'앵무새'})[c.species]:'오늘도 수고했어요');
- put('dialogue',game.closed?'영업이 마감됐어요.':!c?(game.lastDeparture&&game.elapsed-game.lastDeparture.at<40?game.lastDeparture.reason:'아직 손님이 없네요. 잠시 기다려볼까요?'):!c.arrived?'손님이 앞자리로 이동하고 있어요…':q?.response|| (c.type==='repair'?'“'+({pot:'손잡이가 깨졌어요. 이 주전자',clock:'바늘이 멈췄어요. 이 시계',box:'멜로디가 끊겨요. 이 음악상자',radio:'소리가 잘 안 나요. 이 라디오'}[c.item.kind]||('손볼 곳이 있는 '+c.item.name))+', '+(q?.price||0)+'원에 사 주실래요?”':'“진열된 물건을 사고 싶어요. 어떤 걸 보여주시겠어요?”'));
+ put('counter-name',c?c.name+' · '+({dog:'강아지',rabbit:'토끼',mouse:'생쥐',parrot:'앵무새',snake:'뱀'})[c.species]:'오늘도 수고했어요');
+ put('dialogue',game.closed?'영업이 마감됐어요.':!c?(game.lastDeparture&&game.elapsed-game.lastDeparture.at<40?game.lastDeparture.reason:'아직 손님이 없네요. 잠시 기다려볼까요?'):!c.arrived?'손님이 앞자리로 이동하고 있어요…':q?.response|| (c.species==='snake'?'“이 물건의 주인은 묻지 마시오. '+(q?.price||0)+'원이면 넘기지. 감정은 당신 몫이오.”':c.type==='repair'?'“'+({pot:'손잡이가 깨졌어요. 이 주전자',clock:'바늘이 멈췄어요. 이 시계',box:'멜로디가 끊겨요. 이 음악상자',radio:'소리가 잘 안 나요. 이 라디오'}[c.item.kind]||('손볼 곳이 있는 '+c.item.name))+', '+(q?.price||0)+'원에 사 주실래요?”':'“진열된 물건을 사고 싶어요. 어떤 걸 보여주시겠어요?”'));
  $('trade-sale-select').hidden=c?.type!=='buy';const saleToken=JSON.stringify(game.display.map(x=>x?[x.id,x.askingPrice||x.price]:null));if($('trade-sale-select').dataset.token!==saleToken){$('trade-sale-select').dataset.token=saleToken;$('trade-sale-select').textContent='';game.display.forEach((x,i)=>{if(!x)return;const option=document.createElement('option');option.value=i;option.textContent=(i+1)+'번 '+x.name+' · '+(x.askingPrice||x.price)+'원';$('trade-sale-select').append(option)})}$('trade-sale-select').value=selectedSlot??'';
  $('accept').hidden=!q;$('accept').disabled=!available||q?.state==='priced-out';put('accept',q?.state==='priced-out'?'가격 조정 필요':q?q.price+'원에 '+(c.type==='repair'?'매입 확정':'판매 확정'):'거래 확정');$('decline').disabled=!available;
  for(let i=0;i<6;i++){const b=$('sell'+i),v=game.display[i];b.hidden=c?.type!=='buy'||i>=game.capacity;b.disabled=!available||!v;b.textContent=v?(i===selectedSlot?'선택: ':'')+v.name+' · '+(v.askingPrice||v.price)+'원':'빈 진열칸';b.setAttribute('aria-pressed',String(i===selectedSlot))}
@@ -61,8 +63,8 @@ function updatePanel(){if(pendingWork){if(game.getJob(pendingWork.station)?.repa
  put('work-title',(workStation==='prep'?'A공정 · ':'B공정 · ')+(r?'#'+r.item.id+' '+r.item.name+' · '+(currentOwner()?currentOwner()+' 담당':'인수 대기'):(workshop.result()?(workStation==='prep'?'중간 보관함 전달 완료':'복원 완료'):(pendingWork?'물품 인수 확인 중':'물품 인수 대기'))));
  const closeup= document.body.classList.contains('game-layout') && matchMedia('(orientation:landscape)').matches;
  const mobileGuide={inspect:'오른쪽에서 점검할 부위를 누르세요.',clean:'오른쪽에서 세척할 부위를 누르세요.',screws:'오른쪽 나사 풀기 버튼을 네 번 누르세요.',assemble:r?.item.process==='surface'?'오른쪽에서 복원할 부위를 선택하세요.':'각도를 맞춘 뒤 맞춰 끼우기를 누르세요.',replace:'오른쪽에서 재료를 고른 뒤 장착을 누르세요.',test:'오른쪽에서 최종 검사 시작을 누르세요.'};
- put('work-instruction',r?(closeup&&mobileGuide[stage]||workshop.instruction(r)):!workshop.result()?'목록에서 물건을 선택하고 인수 상태를 확인해 주세요.':workStation==='prep'?'B 담당자가 인수할 수 있어요. A 담당자는 다음 물건을 시작해 주세요.':'C 담당자가 완료품을 진열하면 판매할 수 있어요.');
- put('work-side-instruction',r?.stage==='replace'?'필요 부품: '+ShopGame.parts[r.item.part].name+(closeup?' · 장착할 재료를 확인하세요.':' · 물건의 표시 위치로 끌어 놓으세요.'):r?.stage==='assemble'&&r.item.process!=='surface'?'부품 '+(r.fitted+1)+'/3 · 현재 '+r.angle*90+'° / 목표 '+r.targets[r.fitted]*90+'° · 방향을 맞춰 조립하세요.':'');
+ put('work-instruction',r?(workshop.instruction(r)):!workshop.result()?'목록에서 물건을 선택하고 인수 상태를 확인해 주세요.':workStation==='prep'?'B 담당자가 인수할 수 있어요. A 담당자는 다음 물건을 시작해 주세요.':'C 담당자가 완료품을 진열하면 판매할 수 있어요.');
+ put('work-side-instruction',r?.stage==='replace'?'필요 부품: '+ShopGame.parts[r.item.part].name+(closeup?' · 재료를 표시된 곳으로 끌어 주세요.':' · 물건의 표시 위치로 끌어 놓으세요.'):r?.stage==='assemble'&&r.item.process!=='surface'?'부품 '+(r.fitted+1)+'/3 · 현재 '+r.angle*90+'° / 목표 '+r.targets[r.fitted]*90+'° · 방향을 맞춰 조립하세요.':'');
  const phase=!r?(workshop.result()?4:0):workStation==='prep'?(stage==='inspect'?0:stage==='handoff'?3:1):(stage==='replace'?0:stage==='assemble'?1:stage==='test'?2:3);const labels=workStation==='prep'?['손상 점검','분해·세척','인계 준비','B 대기함 전달']:['부품 교체','조립·복원','최종 검사','C 진열 대기'];
  for(const [i,b]of [...document.querySelectorAll('#work-steps li')].entries()){b.textContent=labels[i];b.className=i<phase?'done':i===phase?'current':'';b.setAttribute('aria-current',i===phase?'step':'false')}
  for(const id of['screw0','screw1','screw2','replace','test','wipe-item','rotate-part','fit-part'])$(id).hidden=true;
@@ -93,14 +95,15 @@ function drawAntique(c,v,state,x,y,w,h){
 function drawTradeScene(c,customer,item){const bg=images['counter-scene'];c.clearRect(0,0,1008,568);if(!bg)return;c.imageSmoothingEnabled=false;c.drawImage(bg,0,0,1008,568);const night=Math.max(0,Math.min(1,(game.time-17)/3));if(night){c.fillStyle='rgba(23,23,44,'+(night*.12)+')';c.fillRect(0,0,1008,568);c.save();c.beginPath();for(const rect of [[643,63,80,74],[734,63,80,74],[643,149,80,90],[734,149,80,90]])c.rect(...rect);c.clip();c.fillStyle='rgba(16,29,55,'+(night*.85)+')';c.fillRect(630,50,205,205);c.restore()}const portrait=customer&&images['portrait-'+customer.species];if(portrait){const h=340,w=portrait.naturalWidth/portrait.naturalHeight*h;c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(portrait,650,126,w,h)}c.imageSmoothingEnabled=false;c.drawImage(bg,0,454,1008,114,0,454,1008,114);if(item)ShopItemArt.surface(c,itemAtlas,item,customer.type==='buy'?'restored':'broken',490,493,300,280)}
 function drawItem(c,v,x,y,scale=1){ShopWorldItems.draw(c,images['world-items'],v,x/2,y/2,2,scale<1)}
 const workshop=new ShopWorkshop({station:()=>workStation,canvas:$('work-canvas'),repair:currentRepair,pending:()=>!!pendingWork,stock:()=>game.stock,findResult:(station,id)=>{const list=station==='prep'?[...game.prepared,...(game.getJob('finish')?[game.getJob('finish').repair.item]:[])]:[...game.ready,...game.display.filter(Boolean)];return list.find(x=>x.id===id)||null},visible:()=>mode==='work',canWork:()=>!!currentRepair()&&currentOwner()===player.skin&&(!online||room.running&&room.healthy),send:(type,p)=>act(type,p),announce:text=>{put('work-instruction',text);put('modal-notice',text)},draw:drawAntique});
-const bench = new ShopBenchControls(workshop);
-function paintWork(r){
- workshop.render(r);
- if(document.body.classList.contains('game-layout') && $('camera').dataset.touchPane==='work')bench.render(r);
-}
+function paintWork(r){workshop.render(r)}
 function tag(x,y,text){ctx.font='18px "Noto Sans CJK KR", "Malgun Gothic", sans-serif';ctx.textAlign='center';const w=Math.max(70,ctx.measureText(text).width+16);ctx.fillStyle='#30242de6';ctx.fillRect(x-w/2,y-20,w,27);ctx.fillStyle='#ffedbf';ctx.fillText(text,x,y)}
 function paintPlayer(p){const x=Math.round(p.x)*2,y=Math.round(p.y)*2;ctx.fillStyle='#30242d40';ctx.beginPath();ctx.ellipse(x,y,12,3,0,0,Math.PI*2);ctx.fill();ctx.drawImage(images[p.skin+'-'+p.dir+'-'+p.frame()],x-40,y-100,80,108);if(p===player){ctx.strokeStyle='#e8d18d';ctx.beginPath();ctx.ellipse(x,y+1,14,4,0,0,Math.PI*2);ctx.stroke()}}
 function paintGuest(g){
+ if(g.species==='snake'){
+  const snake=images['portrait-snake'];
+  if(snake)ctx.drawImage(snake,g.x*2-36,g.y*2-74+Math.round(Math.sin(g.phase*6)*2),72,74);
+  return;
+ }
  const base=g.leaving?0:2,col=base+(g.walking&&Math.floor(g.phase*2)%2?1:0),idle=images['npc-'+g.species+'-'+base],pose=images['npc-'+g.species+'-'+col];
  const x=Math.round(g.x)*2-36,y=Math.round(g.y)*2-96,head={dog:25,rabbit:31,mouse:25,parrot:23}[g.species];
  ctx.fillStyle='#30242d40';ctx.beginPath();ctx.ellipse(g.x*2,g.y*2,13,3,0,0,Math.PI*2);ctx.fill();
@@ -137,7 +140,7 @@ function moveGuests(dt){for(const[id,g]of guests)if(!game.customers.some(c=>c.id
  game.customers.forEach((c,i)=>{let g=guests.get(c.id);if(!g){if(players.some(p=>Math.hypot(p.x-409,p.y-336)<30)||[...guests.values()].some(p=>Math.hypot(p.x-409,p.y-336)<32)){c.arrived=false;return}g=Object.assign(new ShopEngine.Player(),{x:409,y:336,name:c.name,species:c.species,dir:'back',slot:-1,speed:88});guests.set(c.id,g)}if(g.slot!==i){g.setTarget(queueSlots[i]);g.slot=i;c.arrived=false}const old={x:g.x,y:g.y,phase:g.phase,path:g.path.slice()};g.update(dt);const blocked=[...guests.values()].some(other=>other!==g&&!other.leaving&&Math.hypot(g.x-other.x,g.y-other.y)<32&&Math.hypot(old.x-other.x,old.y-other.y)>=Math.hypot(g.x-other.x,g.y-other.y));if(blocked){Object.assign(g,old);g.walking=false}g.dir='back';c.arrived=i===0&&!g.path.length&&Math.hypot(g.x-queueSlots[0].x,g.y-queueSlots[0].y)<2})}
 let lastFocus;
 function trackPlayer(){const focus=Math.round(player.y-20)/342;if(focus!==lastFocus){canvas.style.setProperty('--focus',focus);lastFocus=focus}}
-function tick(t){const dt=last?Math.min(.1,(t-last)/1000):0;last=t;const previous=game.notice;if(!online||room.canSimulate())game.tick(dt*(online?1:speed));moveGuests(online&&!room.running?0:dt);players.forEach(p=>{if(!online||p===player)p.update(dt,p===player&&!mode&&(!online||room.running&&room.healthy)?[...keys.values()].at(-1):null)});saveClock+=dt;if(!online&&saveClock>4){saveClock=0;saveLocal()}if(arrival&&!player.path.length){const s=arrival;arrival=null;player.dir=s.face;if(s.id==='door')say(s.label+'에 도착했어요.');else stationAction(s.id)}if(game.notice!==previous)say(game.notice);if(game.closed&&(mode==='work'||mode==='counter'))close();panelClock+=dt;if(panelClock>.1){updatePanel();panelClock=0}trackPlayer();draw();requestAnimationFrame(tick)}
+function tick(t){const dt=last?Math.min(.1,(t-last)/1000):0;last=t;const previous=game.notice;if((!online&&$('network-modal').hidden)||room.canSimulate())game.tick(dt*(online?1:speed));moveGuests(online&&!room.running?0:dt);players.forEach(p=>{if(!online||p===player)p.update(dt,p===player&&!mode&&(!online||room.running&&room.healthy)?[...keys.values()].at(-1):null)});saveClock+=dt;if(!online&&saveClock>4){saveClock=0;saveLocal()}if(arrival&&!player.path.length){const s=arrival;arrival=null;player.dir=s.face;if(s.id==='door')say(s.label+'에 도착했어요.');else stationAction(s.id)}if(game.notice!==previous)say(game.notice);if(game.closed&&(mode==='work'||mode==='counter'))close();panelClock+=dt;if(panelClock>.1){updatePanel();panelClock=0}trackPlayer();draw();requestAnimationFrame(tick)}
 canvas.addEventListener('pointerdown',e=>{if(!loaded||mode)return;const r=canvas.getBoundingClientRect();goTo({x:(e.clientX-r.left)*512/r.width,y:(e.clientY-r.top)*342/r.height})});
 const keyboard={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'back',w:'back',W:'back',ArrowDown:'front',s:'front',S:'front'};
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){close();return}if(!loaded||mode||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)||!keyboard[e.key])return;e.preventDefault();arrival=null;keys.delete(e.code);keys.set(e.code,keyboard[e.key])});window.addEventListener('keyup',e=>keys.delete(e.code));
@@ -146,8 +149,8 @@ window.addEventListener('blur',stop);document.addEventListener('visibilitychange
 $('reset').onclick=()=>{if(online){say('온라인에서는 자신의 캐릭터만 이동할 수 있어요.');return}close();stop();players.forEach((p,i)=>{p.x=spawns[i][0];p.y=spawns[i][1];p.path=[];p.dir='front';p.walking=false});say('캐릭터 위치를 초기화했어요. 영업 상태는 유지됩니다.')};
 function saveLocal(){if(online)return;const ok=ShopSave.write(game);$('save-status').textContent=ok?'오프라인 · '+new Date().toLocaleTimeString('ko-KR')+' 저장':'저장 공간을 확인해 주세요. 저장 파일을 받을 수 있어요.'}
 function applyRemote(skin,type,p,members){
- if(p._pipeline!==1)return game.fail('세 명 모두 0.5.6로 새로고침한 뒤 다시 시도해 주세요.');
- const needs={counter:'counter',serve:'counter',negotiate:'counter',dismiss:'counter',exhibit:'display',claim:'entrance'},station=workActions.includes(type)?(p.station==='finish'?'repair-b':'repair'):needs[type];
+ if(p._pipeline!==1)return game.fail('세 명 모두 최신 버전으로 새로고침해 주세요.');
+ const needs={counter:'counter',serve:'counter',negotiate:'counter',dismiss:'counter',exhibit:p.commission?null:'display',claim:'entrance'},station=workActions.includes(type)?(p.station==='finish'?'repair-b':'repair'):needs[type];
  if(station){const member=members.find(m=>'ABC'[m.slot]===skin),point=ShopEngine.stations.find(s=>s.id===station).point;if(!member||Math.hypot(member.x-point.x,member.y-point.y)>25)return game.fail('해당 작업 위치에 도착한 뒤 시도해 주세요.')}
  return game.action(skin,type,p);
 }
@@ -158,9 +161,9 @@ function applyMembers(members,slot,isHost,running){
  const selected=players[slot];if(!memberInitialized){player=selected;memberInitialized=true;const me=members.find(m=>m.slot===slot);if(me){player.x=me.x;player.y=me.y}player.path=[];keys.clear()}
  for(const m of members){const p=players[m.slot];if(p!==player){p.x=m.x;p.y=m.y;p.dir=m.dir;p.walking=m.walking;p.phase=(p.phase+.12)%1}}
  for(const b of document.querySelectorAll('[data-character]')){b.disabled=true;b.setAttribute('aria-pressed',String(b.dataset.character===player.skin))}
- $('speed').disabled=true;$('save-now').disabled=true;$('restore-save').disabled=true;$('backup-save').disabled=true;$('create-room').disabled=true;$('join-room').disabled=true;$('connect-server').disabled=true;$('start-room').disabled=!isHost||running;
+ $('ready-room').disabled=running||!!members.find(m=>m.slot===slot)?.ready;$('speed').disabled=true;$('save-now').disabled=true;$('restore-save').disabled=true;$('backup-save').disabled=true;$('create-room').disabled=true;$('join-room').disabled=true;$('connect-server').disabled=true;$('start-room').disabled=!isHost||running||members.length!==3||members.some(m=>!m.ready);
  const list=$('room-members');list.textContent='';for(let i=0;i<3;i++){const m=members.find(m=>m.slot===i),row=document.createElement('p');row.textContent='ABC'[i]+' · '+(m?m.name+' · '+(Date.now()-Date.parse(m.last_seen)>20000?'접속 끊김':m.ready?'준비 완료':'준비 중'):'동료를 기다리는 중');list.append(row)}
- if(running&&!lastRunning)$('network-modal').hidden=true;lastRunning=running;
+ put('network-close',running?'가게로 돌아가기':'대기실 접기');if(running&&!lastRunning)$('network-modal').hidden=true;lastRunning=running;
 }
 function displayAct(p){if(!near('display')){say('진열대 앞에 도착한 뒤 작업해 주세요.');return}act('exhibit',p);displayToken=null;updatePanel()}
 function displayAllowed(){return !game.closed&&!game.busyStation(player.skin)&&(!online||room.running&&room.healthy)}
@@ -222,9 +225,13 @@ function flowPanel(){
 }
 let partCatalogReady=false;
 function expansionPanel(){flowPanel();materialStatus();if(!partCatalogReady&&ShopParts.ready()){partCatalogReady=true;for(const part of ShopParts.order){const card=$('order-'+part).parentElement,image=document.createElement('canvas');image.width=160;image.height=160;image.style.cssText='width:90px;height:90px;margin:auto;image-rendering:auto';ShopParts.draw(image.getContext('2d'),part,8,8,144);card.querySelector('span')?.replaceWith(image);const usage=document.createElement('p');usage.textContent='사용: '+ShopParts.compatible(part).join(', ');card.append(usage)}}
- put('growth-status','판매 '+game.xp+'건 · '+['동네 수리점','복원 공방','골동품 전문점'][game.tier]+' · 해금 '+ShopGame.catalog.filter(x=>x.tier<=game.tier).length+'/8종 · 진열 보관 '+game.capacity+'칸');
+ put('growth-status',game.campaignSummary()+' · 판매 '+game.xp+'건 · '+['동네 수리점','복원 공방','골동품 전문점'][game.tier]+' · 해금 '+ShopGame.catalog.filter(x=>x.tier<=game.tier).length+'/8종 · 진열 보관 '+game.capacity+'칸');
  const labels={tools:'복원 장비 · 검사 속도·품질 향상',marketing:'동네 홍보 · 방문 간격 단축',shop:'진열 보관 +2칸'};for(const kind of Object.keys(labels)){const n=game.upgrades[kind],max=kind==='shop'?1:2,b=$('upgrade-'+kind);b.textContent=labels[kind]+' / '+n+'단계 · '+(n>=max?'완료':ShopGame.Game.upgradeCost(game,kind)+'원');b.disabled=n>=max||online&&(!room.running||!room.healthy)}
- if(mode==='counter'){const c=game.customers[0],v=c?.type==='buy'?game.display[selectedSlot]:c?.item,ic=$('item-view').getContext('2d');ic.clearRect(0,0,1008,568);drawTradeScene(ic,c,v);if(v){const partCost=Math.ceil(ShopGame.parts[v.part].price/3),current=Math.round(v.price*(v.condition/100)*.45),q=c&&game.quote(c.id,selectedSlot);put('value-current',c.type==='buy'?v.price+'원':current+'원');put('value-restored',v.price+'원');put('value-cost',c.type==='buy'?'수리 완료':partCost+'원');put('value-margin',c.type==='repair'?'수리 후 예상 차익 '+(v.price-(q?.price||0)-partCost)+'원 · 기준가 판매 시, 부품비만 반영':'최종 검사 통과 · 실제 판매가는 흥정에 따라 달라져요.');put('item-condition',v.name+' · '+(c.type==='buy'?'복원 완료':'상태 '+v.condition+'/100'));put('item-fault',c.type==='buy'?'수리와 최종 검사를 마친 진열품입니다.':v.fault);put('customer-personality',(c.personality?.name||'손님')+' · '+(c.personality?.line||''))}else{put('value-current','—');put('value-restored','—');put('value-cost','—');put('value-margin','');put('item-condition','거래할 물건을 기다리고 있어요.');put('item-fault','');put('customer-personality','')}}
+ if(mode==='counter'){const c=game.customers[0],v=c?.type==='buy'?game.display[selectedSlot]:c?.item,ic=$('item-view').getContext('2d');ic.clearRect(0,0,1008,568);drawTradeScene(ic,c,v);if(v){const partCost=Math.ceil(ShopGame.parts[v.part].price/3),current=Math.round(v.price*(v.condition/100)*.45),q=c&&game.quote(c.id,selectedSlot);put('value-current',c.type==='buy'?v.price+'원':current+'원');put('value-restored',v.price+'원');put('value-cost',c.type==='buy'?'수리 완료':partCost+'원');put('value-margin',c.type==='repair'?'수리 후 예상 차익 '+(v.price-(q?.price||0)-partCost)+'원 · 기준가 판매 시, 부품비만 반영':'최종 검사 통과 · 실제 판매가는 흥정에 따라 달라져요.');put('item-condition',v.name+' · '+(c.type==='buy'?'복원 완료':'상태 '+v.condition+'/100'));put('item-fault',c.type==='buy'?'수리와 최종 검사를 마친 진열품입니다.':v.fault);if(v.unverified){
+ put('value-current','미감정');put('value-restored','감정 후 공개');
+ put('value-margin',game.campaign.level>=2?(v.periodMark?'각인 양식이 제작 연대와 맞아요. 정밀 검사 전에는 단정하기 어려워요.':'각인 양식이 낯설어요. 정밀 검사 전에는 단정하기 어려워요.'):'밀매품 · 복원 후 진위와 판매 가치가 정해져요.');
+ put('item-fault','출처 미상의 물건이에요. '+v.fault);
+ }put('customer-personality',(c.personality?.name||'손님')+' · '+(c.personality?.line||''))}else{put('value-current','—');put('value-restored','—');put('value-cost','—');put('value-margin','');put('item-condition','거래할 물건을 기다리고 있어요.');put('item-fault','');put('customer-personality','')}}
  const token=game.tier+':'+game.xp+':'+JSON.stringify(game.upgrades)+':'+itemAtlas.complete;
  if(catalogToken!==token&&itemAtlas.complete&&itemAtlas.naturalWidth){catalogToken=token;const catalog=$('item-catalog');catalog.textContent='';for(const def of ShopGame.catalog){const card=document.createElement('article');card.className='catalog-card'+(def.tier>game.tier?' locked':'');const c=document.createElement('canvas');c.width=180;c.height=180;drawAntique(c.getContext('2d'),def,'restored',0,0,180,180);const title=document.createElement('strong');title.textContent=def.name;const caption=document.createElement('p');caption.textContent=def.tier>game.tier?(def.tier===1?'판매 2건 후 해금':'판매 5건 후 해금'):'기준가 '+def.price+'원';card.append(c,title,caption);catalog.append(card)}}
  put('ledger',game.ledger.slice(0,8).map(x=>x.day+'일차 '+x.item+' '+(x.amount>0?'+':'')+x.amount+'원').join(' / ')||'거래 기록이 여기에 쌓입니다.');
@@ -238,12 +245,34 @@ $('sound-toggle').onclick=()=>{soundEnabled=!soundEnabled;$('sound-toggle').text
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 $('backup-save').onclick=()=>{if(online)return;const blob=new Blob([JSON.stringify(game.snapshot(),null,2)],{type:'application/json'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='cozy-repair-day-'+game.day+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000)};
 $('restore-save').onchange=async e=>{if(online)return;try{const file=e.target.files[0];if(!file)return;if(file.size>200000)throw Error('저장 파일이 너무 큽니다.');const restored=ShopGame.Game.restore(JSON.parse(await file.text()));close();stop();game=restored;guests.clear();saveLocal();updatePanel();say('저장 파일을 불러왔어요.')}catch(err){say('불러오기 실패: '+err.message)}e.target.value=''};
+function showLobbyPane(name){
+ for(const pane of document.querySelectorAll('[data-lobby-pane]'))pane.hidden=pane.dataset.lobbyPane!==name;
+ for(const button of document.querySelectorAll('[data-lobby]'))button.setAttribute('aria-pressed',String(button.dataset.lobby===name));
+ if(name==='server')$('connection-details').open=true;
+}
+for(const button of document.querySelectorAll('[data-lobby]'))button.onclick=()=>showLobbyPane(button.dataset.lobby);
+showLobbyPane('room');
+function updateAnnex(){
+ const kind=game.commissionKind(),item=game.ready.find(v=>v.kind===kind && v.status==='restored');
+ const done=game.campaign.deliveredDay===game.day,def=ShopGame.catalog.find(v=>v.kind===kind);
+ put('annex-order',game.day+'일차 주문 · '+def.name+' 1개');
+ put('annex-stock',done?'오늘 납품을 마쳤어요.':item?'완료품 #'+item.id+' · 납품가 '+Math.round(item.price*1.2)+'원':'완료품 보관함에 '+def.name+'를 준비해 주세요. 납품가는 기준가의 120%예요.');
+ const button=$('annex-deliver');
+ button.disabled=done||!item||game.closed||!!game.busyStation(player.skin)||game.counterOwner===player.skin||online&&(!room.running||!room.healthy);
+ button.dataset.item=item?.id??'';button.dataset.day=game.day;
+ const c=$('annex-object').getContext('2d');c.clearRect(0,0,320,200);
+ if(itemAtlas.complete&&itemAtlas.naturalWidth)ShopItemArt.surface(c,itemAtlas,item||def,'restored',160,190,180,155);
+}
+$('visit-annex').onclick=()=>{updateAnnex();$('annex-room').showModal()};
+$('annex-close').onclick=()=>$('annex-room').close();
+$('annex-deliver').onclick=e=>{const b=e.currentTarget;b.disabled=true;act('exhibit',{commission:true,itemId:Number(b.dataset.item),day:Number(b.dataset.day)});updateAnnex()};
+$('lobby-shortcut').onclick=()=>$('network-open').click();
 $('network-open').onclick=()=>{$('network-modal').hidden=false;$('network-close').focus()};$('network-close').onclick=()=>{$('network-modal').hidden=true};
 const config=window.SHOP_CONFIG||{};let remembered={};try{remembered=JSON.parse(localStorage.getItem('cozy-public-config')||'{}')}catch{}
 $('supabase-url').value=config.supabaseUrl||remembered.url||'';$('supabase-key').value=config.supabaseAnonKey||remembered.key||'';$('room-code').value=localStorage.getItem('cozy-room-code')||'';
 let connected=false,networkBusy=false;
 async function networkTask(fn){if(networkBusy)return;networkBusy=true;try{await fn()}catch(e){$('network-status').textContent='확인 필요 · '+e.message}finally{networkBusy=false}}
-async function ensureConnected(){if(connected)return;const url=$('supabase-url').value.trim().replace(/\/$/,''),key=$('supabase-key').value.trim();if(!url||!key){$('connection-details').open=true;throw Error('기존 Project URL과 공개 키를 입력해 주세요.')}await room.connect(url,key);localStorage.setItem('cozy-public-config',JSON.stringify({url,key}));connected=true}
+async function ensureConnected(){if(connected)return;const url=$('supabase-url').value.trim().replace(/\/$/,''),key=$('supabase-key').value.trim();if(!url||!key){showLobbyPane('server');throw Error('기존 Project URL과 공개 키를 입력해 주세요.')}await room.connect(url,key);showLobbyPane('room');localStorage.setItem('cozy-public-config',JSON.stringify({url,key}));connected=true}
 $('connect-server').onclick=()=>networkTask(ensureConnected);
 $('create-room').onclick=()=>networkTask(async()=>{await ensureConnected();saveLocal();online=true;try{await room.create(game.snapshot(),$('player-name').value)}catch(e){online=false;throw e}$('network-status').textContent='방 '+room.room.code+' · 동료에게 코드를 알려 주세요.';});
 $('join-room').onclick=()=>networkTask(async()=>{await ensureConnected();saveLocal();online=true;try{await room.join($('room-code').value,$('player-name').value)}catch(e){online=false;throw e}});

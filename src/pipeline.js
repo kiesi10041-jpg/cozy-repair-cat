@@ -3,15 +3,101 @@
 const Parent=ShopGame.Game;
 const PROFILES={clock:{points:['유리·외장 균열','멈춘 전달 기어','태엽 구동부'],pieces:['구동 톱니','전달 톱니','시침 연결부'],targets:[1,3,2]},radio:{points:['깨진 조절 손잡이','단선된 전기 접점','스피커 연결부'],pieces:['전원 접점','주파수 접점','스피커 접점'],targets:[3,0,2]},box:{points:['헐거운 경첩','태엽 이탈','실린더 구동부'],pieces:['실린더 축','새 태엽','뚜껑 연결부'],targets:[2,1,3]},pot:{points:['깨진 손잡이','뚜껑 접합면','몸체 오염'],pieces:['손잡이 접합','균열 복원','표면 마감']},painting:{points:['찢어진 캔버스','물감 박리','프레임 오염'],pieces:['바탕 보강','색상 복원','보호 마감']},chair:{points:['헐거운 등받이','좌판 천 손상','빠진 다리'],pieces:['목재 보강','좌판 복원','표면 마감']},camera:{points:['벨로스 파손','렌즈 접합부','걸린 셔터'],pieces:['셔터 접점','렌즈 고정부','구동 연결부'],targets:[1,2,0]},gramophone:{points:['찌그러진 나팔','태엽 구동부','회전축 이탈'],pieces:['태엽 축','회전 전달부','나팔 고정부'],targets:[3,2,1]}};
 class Pipeline extends Parent{
- constructor(random=Math.random){super(random);this.pipelineVersion=1;this.jobs={prep:null,finish:null};this.prepared=[{...this.makeItem(ShopGame.catalog.find(x=>x.kind==='pot')),status:'prepared',preparedBy:'전날 작업'}];this.flowLog=[];this.notice='A는 매입품 2개 점검·분해, B는 전날 준비한 주전자 복원, C는 응대·진열을 맡아 주세요.'}
+ constructor(random=Math.random){super(random);this.campaign={start:this.day,level:0,target:650,sales:0,won:false,event:"상인회에서 첫 입점 조건을 보내왔어요."};this.pipelineVersion=1;this.jobs={prep:null,finish:null};this.prepared=[{...this.makeItem(ShopGame.catalog.find(x=>x.kind==='pot')),status:'prepared',preparedBy:'전날 작업'}];this.flowLog=[];this.notice='A는 매입품 2개 점검·분해, B는 전날 준비한 주전자 복원, C는 응대·진열을 맡아 주세요.'}
+ campaignSummary(){
+  const c=this.campaign, goal=c.target;
+  const rewards=['별관 납품실 · 진열대 6칸 · 목재·회화 복원','정밀 감정 · 기계 골동품 복원','부품 보급'];
+  return (c.level===0?'동네 수리점':c.level===1?'복원 공방':'골동품 전문점')+' · '+c.start+'~'+(c.start+6)+'일차 매출 '+c.sales+'/'+goal+'원 · '+(c.won?'달성! ':'목표 보상 ')+rewards[Math.min(c.won?c.level-1:c.level,2)]+' · '+c.event;
+ }
+ commissionKind(){
+  return ['clock','box','pot','radio'][(this.day-1)%4];
+ }
+ deliverCommission(skin,itemId,day){
+  const c=this.campaign;
+  if(this.closed||!c.level||this.busyStation(skin)||this.counterOwner===skin||day!==this.day||c.deliveredDay===day)return this.fail('오늘의 납품 상태를 다시 확인해 주세요.');
+  const index=this.ready.findIndex(item=>item.id===itemId && item.kind===this.commissionKind() && item.status==='restored');
+  if(index<0)return this.fail('완료품 보관함에 해당 물건이 없어요.');
+  const [item]=this.ready.splice(index,1);
+  const price=Math.round(item.price*1.2);
+  c.deliveredDay=day;
+  this.money+=price;
+  this.sold++;
+  this.xp++;
+  this.ledger.unshift({day,item:item.name,amount:price});
+  this.ledger=this.ledger.slice(0,30);
+  this.notice=item.name+' 상인회 납품 · '+price+'원 입금';
+  this.record(this.notice);
+  this.creditSale(price);
+  return true;
+ }
+ nextDay(){
+  if(!super.nextDay())return false;
+  const c=this.campaign;
+  if(this.day>=c.start+7){
+   const previous=c.won?'지난주 목표 달성':'지난주 목표 미달';
+   Object.assign(c,{start:this.day,sales:0,won:false,target:[650,1200,1800][Math.min(2,c.level)],event:previous+' · 새 장터가 열렸어요.'});
+  }
+  return true;
+ }
+ creditSale(amount){
+  const c=this.campaign;
+  c.sales+=amount;
+  if(c.won||c.sales<c.target)return;
+  c.won=true;
+  c.level++;
+  if(c.level===1){
+   if(!this.upgrades.shop){this.upgrades.shop=1;this.display.push(null,null)}
+   c.event='상인회 입점 승인! 여섯 칸 매대와 목재·회화 복원 의뢰가 열렸어요.';
+  }else if(c.level===2){
+   c.event='감정사 방문! 밀매품의 감정 단서와 정밀 기계 의뢰가 열렸어요.';
+  }else{
+   for(const part of Object.keys(this.stock))this.stock[part]++;
+   c.event='단골들의 답례로 부품을 종류별로 하나씩 받았어요.';
+  }
+  this.notice+=' '+c.event;
+  this.record(c.event);
+ }
+ get tier(){return Math.max(super.tier,Math.min(2,this.campaign?.level||0))}
+ spawn(force){
+  const c=this.campaign;
+  const market=c && this.elapsed>=this.nextVisitorAt && !force && this.day>=c.start+2 && c.dealerWeek!==c.start;
+  if(!super.spawn(market?'repair':force))return false;
+  if(market){
+   const guest=this.customers[0];
+   c.dealerWeek=c.start;
+   guest.species='snake';guest.name='비늘손';
+   guest.personality={name:'떠돌이 밀매상',line:'출처는 묻지 마시오. 흥정은 두 번만 받겠소.',sellFloor:.9,rounds:2,concession:.004};
+   guest.rate=1.65;
+   guest.item.unverified=true;
+   guest.item.genuine=this.random()<.45;
+   guest.item.periodMark=this.random()<.75?guest.item.genuine:!guest.item.genuine;
+   c.event='비늘손이 출처 불명의 골동품을 들고 찾아왔어요.';
+   this.notice=c.event;
+  }
+  return true;
+ }
+ serve(id,slot,price){
+  const guest=this.customers[0],before=this.money;
+  if(!super.serve(id,slot,price))return false;
+  if(guest.type==='buy')this.creditSale(this.money-before);
+  return true;
+ }
+ replacePart(skin,part){
+  if(!super.replacePart(skin,part))return false;
+  if(this.repair.item.repairRoute==='single'){
+   this.repair.stage='test';
+   this.notice='맞춤 교체재를 끼웠어요. 최종 검사를 진행해 주세요.';
+  }
+  return true;
+ }
  partStatus(item){const part=item.part,count=Math.max(0,Number(this.stock[part])||0),deliveries=this.deliveries.filter(x=>x.part===part&&x.state!=='claimed');return{part,name:ShopGame.parts[part]?.name||part,need:1,count,available:count>=1,shipping:deliveries.filter(x=>x.state==='shipping').reduce((n,x)=>n+x.count,0),arrived:deliveries.filter(x=>x.state==='arrived').reduce((n,x)=>n+x.count,0)}}
  getJob(station){return this.jobs[station]||null}
  busyStation(skin){return Object.keys(this.jobs).find(s=>this.jobs[s]?.owner===skin)||null}
  record(text){this.flowLog.unshift({day:this.day,text});this.flowLog=this.flowLog.slice(0,30)}
  inJob(station,fn){const oldRepair=this.repair,oldOwner=this.owner,job=this.jobs[station];this.repair=job?.repair||null;this.owner=job?.owner||null;try{const result=fn();if(station==='prep'&&this.repair?.stage==='replace'){this.repair.stage='handoff';this.notice='A공정 완료! 중간 보관함으로 넘기면 B 담당자가 이어서 복원해요.'}this.jobs[station]=this.repair?{owner:this.owner,repair:this.repair}:null;return result}finally{this.repair=oldRepair;this.owner=oldOwner}}
  begin(skin,station='prep',itemId){if(!['prep','finish'].includes(station)||this.closed)return this.fail('영업 중인 공정을 선택해 주세요.');const other=this.busyStation(skin);if(other&&other!==station)return this.fail('다른 공정을 맡고 있어요. 먼저 작업을 내려놓거나 넘겨 주세요.');if(this.counterOwner===skin)return this.fail('응대를 마치고 카운터를 나와 공정을 맡아 주세요.');const job=this.jobs[station];if(job){if(itemId!==undefined&&job.repair.item.id!==itemId)return this.fail('현재 공정의 물건을 마치거나 내려놓은 뒤 다른 물건을 선택해 주세요.');if(job.owner&&job.owner!==skin)return this.fail(job.owner+'가 이 공정을 진행 중이에요.');job.owner=skin;this.notice=skin+'가 '+(station==='prep'?'A':'B')+'공정을 이어받았어요.';return true}
- if(station==='prep'){if(this.prepared.length>=6)return this.fail('중간 보관함이 가득 찼어요. B공정 진행을 도와 주세요.');if(itemId!==undefined){const index=this.pending.findIndex(x=>x.id===itemId);if(index<0)return this.fail('선택한 물건이 매입함에 없어요. 목록을 새로 확인해 주세요.');const selected=this.pending.splice(index,1)[0];this.pending.unshift(selected)}return this.inJob('prep',()=>{if(!super.begin(skin))return false;const r=this.repair;r.nextAfterInspect=r.stage;r.stage='inspect';r.inspected=[];r.station='prep';r.preparedBy=skin;r.profile=PROFILES[r.item.kind];this.notice='먼저 세 곳의 손상 상태를 확인해 주세요.';this.record(skin+' · A공정 시작 · '+r.item.name);return true})}
- if(!this.prepared.length)return this.fail('A공정에서 넘긴 물건을 기다리고 있어요.');const index=itemId===undefined?0:this.prepared.findIndex(x=>x.id===itemId);if(index<0)return this.fail('선택한 물건이 B 대기함에 없어요. 다른 동료의 인수 여부를 확인해 주세요.');const selected=this.prepared[index],material=this.partStatus(selected);if(!material.available)return this.fail(material.name+' 재고가 없어요. 부품을 주문하고 수령한 뒤 인수해 주세요.');const item=this.prepared.splice(index,1)[0],profile=PROFILES[item.kind];this.jobs.finish={owner:skin,repair:{item,station:'finish',profile,preparedBy:item.preparedBy,stage:'replace',order:[0,1,2],step:3,screwTurns:[1,1,1],cleaned:[0,1,2],wipes:3,restored:[],angle:0,fitted:0,targets:profile.targets||[1,3,2],consumed:false,testLeft:0}};this.notice=skin+'가 '+item.name+'의 B공정을 시작해요.';this.record(skin+' · B공정 인수 · '+item.name+' (A 담당 '+(item.preparedBy||'?')+')');return true}
+ if(station==='prep'){if(this.prepared.length>=6)return this.fail('중간 보관함이 가득 찼어요. B공정 진행을 도와 주세요.');if(itemId!==undefined){const index=this.pending.findIndex(x=>x.id===itemId);if(index<0)return this.fail('선택한 물건이 매입함에 없어요. 목록을 새로 확인해 주세요.');const selected=this.pending.splice(index,1)[0];this.pending.unshift(selected)}return this.inJob('prep',()=>{if(!super.begin(skin))return false;const r=this.repair;r.nextAfterInspect=r.item.repairRoute==='accessible'?'handoff':r.stage;r.stage='inspect';r.inspected=[];r.station='prep';r.preparedBy=skin;r.profile=PROFILES[r.item.kind];this.notice='먼저 세 곳의 손상 상태를 확인해 주세요.';this.record(skin+' · A공정 시작 · '+r.item.name);return true})}
+ if(!this.prepared.length)return this.fail('A공정에서 넘긴 물건을 기다리고 있어요.');const index=itemId===undefined?0:this.prepared.findIndex(x=>x.id===itemId);if(index<0)return this.fail('선택한 물건이 B 대기함에 없어요. 다른 동료의 인수 여부를 확인해 주세요.');const selected=this.prepared[index],material=this.partStatus(selected);if(!material.available)return this.fail(material.name+' 재고가 없어요. 부품을 주문하고 수령한 뒤 인수해 주세요.');const item=this.prepared.splice(index,1)[0],profile=PROFILES[item.kind];this.jobs.finish={owner:skin,repair:{item,station:'finish',profile,preparedBy:item.preparedBy,stage:'replace',order:[0,1,2],step:3,screwTurns:[1,1,1],cleaned:[0,1,2],wipes:3,restored:[],angle:0,fitted:0,targets:item.fitTargets||profile.targets||[1,3,2],consumed:false,testLeft:0}};this.notice=skin+'가 '+item.name+'의 B공정을 시작해요.';this.record(skin+' · B공정 인수 · '+item.name+' (A 담당 '+(item.preparedBy||'?')+')');return true}
  sellingRange(item){return{min:1,max:Number.MAX_SAFE_INTEGER}}
  setAskingPrice(skin,itemId,price){if(this.closed||this.busyStation(skin))return this.fail('영업 중에 수리 공정을 내려놓고 가격을 정해 주세요.');const item=[...this.ready,...this.display.filter(Boolean)].find(x=>x.id===itemId);if(!item)return this.fail('가격을 정할 물건이 보관함이나 진열대에 없어요.');const range=this.sellingRange(item);if(!Number.isSafeInteger(price)||price<range.min||price>range.max)return this.fail('판매가는 1원 이상의 정수로 입력해 주세요.');item.askingPrice=price;for(const c of this.customers)if(c.bargains)delete c.bargains['buy:'+item.id];this.notice='#'+item.id+' '+item.name+' 판매가를 '+price+'원으로 저장했어요.';this.record(skin+' · #'+item.id+' 판매가 '+price+'원');return true}
  displayChange(skin,p){
@@ -24,7 +110,16 @@ class Pipeline extends Parent{
  if(p.fromSlot!==undefined){const from=p.fromSlot,item=this.display[from];if(!valid(from)||from===slot||!item||item.id!==p.itemId||(this.display[slot]?.id??null)!==p.targetId)return this.fail('진열 상태가 바뀌었어요. 옮길 물건과 칸을 다시 선택해 주세요.');const target=this.display[slot];this.display[slot]=item;this.display[from]=target;this.notice=target?'두 물건의 진열 위치를 바꿨어요.':item.name+'를 '+(slot+1)+'번 칸으로 옮겼어요.';this.record(skin+' · #'+item.id+' 진열 위치 '+(from+1)+' → '+(slot+1));return true}
  const index=this.ready.findIndex(x=>x.id===p.itemId);if(index<0)return this.fail('선택한 완료품이 보관함에 없어요.');if(this.display[slot])return this.fail('이미 물건이 있는 칸이에요. 빈칸을 선택해 주세요.');const item=this.ready[index];if(item.status!=='restored')return this.fail('최종 검사를 통과한 물건만 진열할 수 있어요.');const range=this.sellingRange(item),asking=p.askingPrice??item.askingPrice;if(!Number.isSafeInteger(asking)||asking<range.min||asking>range.max)return this.fail('진열하기 전에 판매가를 저장해 주세요.');item.askingPrice=asking;this.ready.splice(index,1);this.display[slot]=item;this.notice='#'+item.id+' '+item.name+'를 '+(slot+1)+'번 칸에 진열했어요.';this.record(skin+' · #'+item.id+' '+item.name+' → '+(slot+1)+'번 진열');if(!this.customers.some(c=>c.type==='buy')&&this.customers.length<3)this.spawn();return true;
  }
- tick(dt){if(this.closed){this.customers=[];this.counterOwner=null;this.elapsed+=Math.max(0,dt);return}const closing=dt>=this.remaining,finishedItem=this.jobs.finish?.repair.item,finishedBy=this.jobs.finish?.owner,readyCount=this.ready.length,applied=closing?Math.max(0,this.remaining-.000001):dt;this.inJob('finish',()=>super.tick(applied));if(this.ready.length>readyCount&&finishedItem){this.ready.at(-1).finishedBy=finishedBy;this.record((finishedBy||'동료')+' · B공정 완료 · '+finishedItem.name+' → C 진열 대기')}if(closing){this.remaining=0;this.closed=true;this.customers=[];this.counterOwner=null;this.notice='영업 마감. A·B 공정의 진행과 사용 재료를 보관했어요. 다음 날 그대로 이어서 작업합니다.'}}
+ tick(dt){if(this.closed){this.customers=[];this.counterOwner=null;this.elapsed+=Math.max(0,dt);return}const closing=dt>=this.remaining,finishedItem=this.jobs.finish?.repair.item,finishedBy=this.jobs.finish?.owner,readyCount=this.ready.length,applied=closing?Math.max(0,this.remaining-.000001):dt;this.inJob('finish',()=>super.tick(applied));if(this.ready.length>readyCount&&finishedItem){const item=this.ready.at(-1);
+ if(item.unverified){
+  const result=item.genuine?'진품':'모조품';
+  item.price=Math.round(item.price*(item.genuine?2.4:.25));
+  item.name+=' ('+result+')';
+  delete item.unverified;
+  this.notice='감정 결과 '+result+' · 기준가 '+item.price+'원';
+  this.record(this.notice);
+ }
+ item.finishedBy=finishedBy;this.record((finishedBy||'동료')+' · B공정 완료 · '+finishedItem.name+' → C 진열 대기')}if(closing){this.remaining=0;this.closed=true;this.customers=[];this.counterOwner=null;this.notice='영업 마감. A·B 공정의 진행과 사용 재료를 보관했어요. 다음 날 그대로 이어서 작업합니다.'}}
  action(skin,type,p={}){if(this.closed&&['screw','wipe','replace','rotate','fit','test'].includes(type))return this.fail('영업이 마감됐어요. 다음 날 이어서 작업해 주세요.');const station=p.station||this.busyStation(skin)||'prep';
  if(type==='begin')return this.begin(skin,station,p.itemId);
  if(['screw','wipe','replace','rotate','fit','test','cancel','pass'].includes(type)){
@@ -32,9 +127,10 @@ class Pipeline extends Parent{
   if(type==='pass'&&p.transfer){const j=this.jobs[station];if(station!=='prep'||j.repair.stage!=='handoff')return this.fail('A공정을 마친 뒤 B공정으로 넘길 수 있어요.');const item=j.repair.item;item.status='prepared';item.preparedBy=skin;item.inspected=j.repair.inspected||[];this.prepared.push(item);this.jobs.prep=null;this.record(skin+' · '+item.name+' → B 대기함 전달');this.notice=item.name+'를 B 대기함으로 넘겼어요. A 담당자는 다음 물건을 시작할 수 있어요.';return true}
   if(type==='pass'){this.jobs[station].owner=null;this.notice='현재 공정을 내려놓았어요. 다른 동료가 그대로 이어받을 수 있어요.';return true}
   if(type==='cancel'){const j=this.jobs[station];if(j.repair.consumed)this.stock[j.repair.item.part]++;(station==='prep'?this.pending:this.prepared).unshift(j.repair.item);this.jobs[station]=null;this.notice='물건과 사용 재료를 해당 공정의 대기함으로 돌려놓았어요.';return true}
-  return this.inJob(station,()=>{const r=this.repair;if(r.stage==='inspect'){if(type!=='wipe'||![0,1,2].includes(p.inspectZone)||r.inspected.includes(p.inspectZone))return false;r.inspected.push(p.inspectZone);this.notice=r.profile.points[p.inspectZone]+' 확인';if(r.inspected.length===3){r.stage=r.nextAfterInspect;this.notice='상태 점검 완료. '+(r.stage==='screws'?'번호 순서대로 나사를 풀어 주세요.':'오염 부위를 문질러 정리해 주세요.')}return true}if(station==='prep'&&!['screw','wipe'].includes(type))return this.fail('부품 교체와 복원은 B공정 담당이에요.');return Parent.prototype.action.call(this,skin,type,p)})
+  return this.inJob(station,()=>{const r=this.repair;if(r.stage==='inspect'){if(type!=='wipe'||![0,1,2].includes(p.inspectZone)||r.inspected.includes(p.inspectZone))return false;r.inspected.push(p.inspectZone);this.notice=r.profile.points[p.inspectZone]+' 확인';if(r.inspected.length===3){r.stage=r.nextAfterInspect;this.notice='상태 점검 완료. '+(r.stage==='handoff'?'손상 부위에 바로 접근할 수 있어요. B 담당자에게 넘겨 주세요.':r.stage==='screws'?'번호 순서대로 나사를 풀어 주세요.':'오염 부위를 문질러 정리해 주세요.')}return true}if(station==='prep'&&!['screw','wipe'].includes(type))return this.fail('부품 교체와 복원은 B공정 담당이에요.');return Parent.prototype.action.call(this,skin,type,p)})
  }
  if(type==='counter'&&this.busyStation(skin))return this.fail('맡은 공정을 내려놓고 응대를 시작해 주세요.');
+ if(type==='exhibit'&&p.commission)return this.deliverCommission(skin,p.itemId,p.day);
  if(type==='exhibit'&&(p.itemId!==undefined||p.fromSlot!==undefined||p.withdraw!==undefined))return this.displayChange(skin,p);
  if(type==='exhibit'&&p.organize){this.pending.sort((a,b)=>a.condition-b.condition);this.prepared.sort((a,b)=>b.price-a.price);this.ready.sort((a,b)=>b.price-a.price);this.record(skin+' · 물건 정리 · 손상품 우선 / 고가품 우선');this.notice='매입함은 손상 큰 순서, 중간·완료함은 기준가 높은 순서로 정리했어요.';return true}
  if(type==='exhibit'&&p.all){let count=0;for(const item of [...this.ready]){const slot=this.display.indexOf(null);if(slot<0)break;if(Number.isSafeInteger(item.askingPrice)&&this.displayChange(skin,{itemId:item.id,slot}))count++}if(count){this.notice='가격을 정한 완료품 '+count+'개를 진열했어요.';return true}return this.fail('판매가를 먼저 저장한 뒤 빈칸에 진열해 주세요.')}
@@ -43,7 +139,7 @@ class Pipeline extends Parent{
  return Parent.prototype.action.call(this,skin,type,p)
  }
  snapshot(){const state=super.snapshot();state.pipelineVersion=1;return state}
- static restore(data){const old=Parent.restore(data),g=new Pipeline();Object.assign(g,old);g.random=Math.random;if(!data.pipelineVersion){g.jobs={prep:null,finish:null};g.prepared=[];g.flowLog=[];if(old.repair){const r=old.repair,station=['screws','clean'].includes(r.stage)?'prep':'finish';r.station=station;r.profile=PROFILES[r.item.kind];r.inspected=[0,1,2];if(station==='prep')r.nextAfterInspect=r.stage;g.jobs[station]={owner:old.owner,repair:r}}}if(!g.jobs||!Array.isArray(g.prepared)||!Array.isArray(g.flowLog))throw Error('공정 저장 데이터가 손상됐어요.');for(const st of['prep','finish']){const j=g.jobs[st];if(j){j.repair.profile??=PROFILES[j.repair.item.kind];j.repair.inspected??=[0,1,2]}}for(const item of g.display.filter(Boolean))if(!Number.isSafeInteger(item.askingPrice))item.askingPrice=item.price;for(const item of [...g.pending,...g.prepared,...g.ready,...g.display.filter(Boolean),...Object.values(g.jobs).filter(Boolean).map(j=>j.repair.item),...g.customers.map(c=>c.item)].filter(Boolean)){if(item.kind==='clock'&&item.fault==='태엽이 멈추고 시계 유리에 금이 갔어요.')item.fault=ShopGame.catalog.find(x=>x.kind==='clock').fault}g.repair=null;g.owner=null;g.pipelineVersion=1;return g}
+ static restore(data){const old=Parent.restore(data),g=new Pipeline();Object.assign(g,old);g.random=Math.random;if(!data.campaign)g.campaign.start=g.day;if(!data.pipelineVersion){g.jobs={prep:null,finish:null};g.prepared=[];g.flowLog=[];if(old.repair){const r=old.repair,station=['screws','clean'].includes(r.stage)?'prep':'finish';r.station=station;r.profile=PROFILES[r.item.kind];r.inspected=[0,1,2];if(station==='prep')r.nextAfterInspect=r.stage;g.jobs[station]={owner:old.owner,repair:r}}}if(!g.jobs||!Array.isArray(g.prepared)||!Array.isArray(g.flowLog))throw Error('공정 저장 데이터가 손상됐어요.');for(const st of['prep','finish']){const j=g.jobs[st];if(j){j.repair.profile??=PROFILES[j.repair.item.kind];j.repair.inspected??=[0,1,2]}}for(const item of g.display.filter(Boolean))if(!Number.isSafeInteger(item.askingPrice))item.askingPrice=item.price;for(const item of [...g.pending,...g.prepared,...g.ready,...g.display.filter(Boolean),...Object.values(g.jobs).filter(Boolean).map(j=>j.repair.item),...g.customers.map(c=>c.item)].filter(Boolean)){if(item.kind==='clock'&&item.fault==='태엽이 멈추고 시계 유리에 금이 갔어요.')item.fault=ShopGame.catalog.find(x=>x.kind==='clock').fault}g.repair=null;g.owner=null;g.pipelineVersion=1;return g}
 }
 ShopGame.Game=Pipeline;ShopGame.profiles=PROFILES;
 })();

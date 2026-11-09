@@ -1,4 +1,9 @@
 (()=>{'use strict';const $=id=>document.getElementById(id),body=document.body;let page='map',manual=false;body.dataset.page=page;
+function protectPlay(e){
+ if(e.target.closest('input,textarea,[contenteditable=true]'))return;
+ if(e.target.closest('.stage,.characters,.business-actions,.camera,#game-nav,.game-layout button'))e.preventDefault();
+}
+for(const event of ['contextmenu','selectstart','dragstart','dblclick'])window.addEventListener(event,protectPlay);
 function layout(){const small=matchMedia('(pointer:coarse)').matches||matchMedia('(max-width:1000px) and (max-height:650px)').matches;body.classList.toggle('game-layout',small||manual)}
 function select(next){page=next;body.dataset.page=page;for(const b of document.querySelectorAll('#game-nav button[data-page]'))b.setAttribute('aria-pressed',String(b.dataset.page===page))}
 for(const b of document.querySelectorAll('#game-nav button[data-page]'))b.onclick=()=>select(b.dataset.page);
