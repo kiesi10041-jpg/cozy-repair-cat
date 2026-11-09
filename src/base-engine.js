@@ -6,7 +6,7 @@ const floorAt=(x,y)=>(x>=24&&x<=488&&y>=119&&y<=306)||(x>=292&&x<=480&&y>=104&&y
 const valid=(x,y)=>floorAt(x,y)&&!blocks.some(([a,b,w,h,pad=6])=>x>=a-pad&&x<=a+w+pad&&y>=b-2&&y<=b+h+8);
 const stations=[
  {id:'display',label:'중앙 진열 테이블 앞',hit:[178,154,122,108],point:{x:238,y:268},face:'back'},
- {id:'counter',label:'카운터 안쪽',hit:[323,98,179,72],point:{x:410,y:132},face:'front'},
+ {id:'counter',label:'카운터 안쪽',hit:[323,98,179,72],point:{x:410,y:122},face:'front'},
  {id:'repair-b',label:'B공정 · 작업대 오른쪽',hit:[145,176,29,75],point:{x:154,y:212},face:'left'},
  {id:'repair',label:'A공정 · 작업대 앞',hit:[12,138,113,123],point:{x:85,y:270},face:'back'},
  {id:'entrance',label:'입구 통로',hit:[381,284,55,58],point:{x:409,y:330},face:'front'},

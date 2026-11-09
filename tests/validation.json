@@ -65,5 +65,41 @@
     "nativeCharacterGrid": true,
     "fourAndSixSlotRendered": true,
     "worldArtAndRenderTestsPassed": true
+  },
+  "v059": {
+    "originalCharacterFrames": 96,
+    "allThreeIdleTorsoVisible": true,
+    "counterDestinationY": 122,
+    "noStaffDrawOffset": true,
+    "resamplingRemoved": true,
+    "originalAssetSha256": "13b657e05122a47c868e7018924fa90e3f4dff48d14a6733bcca2005f435ecc2"
+  },
+  "v0510": {
+    "pixelReadDependencyRemoved": true,
+    "beforeSecurityErrorPhenotypeReproduced": true,
+    "browserTwoItemsListedWithPixelReadsBlocked": true,
+    "browserAllThreeCharactersRetained": true,
+    "renderFailureIsolationTest": true,
+    "retryableDisplayToken": true
+  },
+  "v0511": {
+    "illustratedTouchKit": 12,
+    "tapOnlyItemsRepaired": 8,
+    "gestureItemsRepaired": 8,
+    "browserViewports": [
+      [
+        844,
+        390
+      ],
+      [
+        740,
+        360
+      ]
+    ],
+    "keypadPriceProposal": 35,
+    "screwFourTapsPassed": true,
+    "inventoryClippingFixed": true,
+    "tabbedTradeWorkDisplaySettings": true,
+    "realIPhoneTested": false
   }
 }
