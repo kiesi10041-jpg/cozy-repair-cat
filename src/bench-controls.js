@@ -53,7 +53,7 @@ class ShopBenchControls {
         const index=r.order[r.step], quarters=Math.round((r.screwTurns?.[index]||0)*4);
         this.button((r.step+1)+'번 나사 풀기 · '+quarters+'/4',()=>send('screw',{index,turns:.25}));break;
       }
-      case 'handoff': this.button('B공정으로 인계',()=>send('pass',{transfer:true}));break;
+      case 'handoff': this.button('B공정으로 인계',()=>send('pass',{transfer:true,continueQueue:true,itemId:r.item.id}));break;
       case 'replace': {
         const required=r.item.part;
         this.hint.textContent='필요한 재료 · '+ShopGame.parts[required].name;

@@ -1,10 +1,10 @@
-(()=>{'use strict';const $=id=>document.getElementById(id),body=document.body;let page='map',manual=false;body.dataset.page=page;
+(()=>{'use strict';const $=id=>document.getElementById(id),body=document.body;let page='map';body.dataset.page=page;
 function protectPlay(e){
  if(e.target.closest('input,textarea,[contenteditable=true]'))return;
  if(e.target.closest('.stage,.characters,.business-actions,.camera,#game-nav,.game-layout button'))e.preventDefault();
 }
 for(const event of ['contextmenu','selectstart','dragstart','dblclick'])window.addEventListener(event,protectPlay);
-function layout(){const small=matchMedia('(pointer:coarse)').matches||matchMedia('(max-width:1000px) and (max-height:650px)').matches;body.classList.toggle('game-layout',small||manual)}
+body.classList.toggle('game-layout',true);
 function select(next){page=next;body.dataset.page=page;for(const b of document.querySelectorAll('#game-nav button[data-page]'))b.setAttribute('aria-pressed',String(b.dataset.page===page))}
 for(const b of document.querySelectorAll('#game-nav button[data-page]'))b.onclick=()=>select(b.dataset.page);
 $('portrait-continue').onclick=()=>body.classList.add('portrait-allowed');$('install-close').onclick=()=>$('install-guide').close();
@@ -15,11 +15,11 @@ function guide(){
  $('install-guide').showModal();
 }
 async function fullscreen(){
- manual=true;layout();
+
  const root=document.documentElement,request=root.requestFullscreen||root.webkitRequestFullscreen;
  if(document.fullscreenElement||document.webkitFullscreenElement||matchMedia('(display-mode:fullscreen)').matches)return;
  if(request){try{await request.call(root);try{await screen.orientation?.lock?.('landscape')}catch{}return}catch{}}
  if(!navigator.standalone)guide();
 }
-$('fullscreen').onclick=fullscreen;window.addEventListener('resize',layout);window.addEventListener('orientationchange',layout);layout();
+$('fullscreen').onclick=fullscreen;
 })();
