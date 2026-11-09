@@ -1,0 +1,131 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>작은 수리점 · 연결 순서</title><style>body{font:16px/1.8 system-ui,sans-serif;background:#f4efe5;color:#342c28;max-width:880px;margin:40px auto;padding:0 20px}h1{font-size:30px}section{background:#fffaf2;border:1px solid #d5c5ac;border-radius:14px;padding:22px;margin:18px 0}h2{font-size:21px;margin-top:0}code{background:#ece2d2;padding:3px 5px}textarea{box-sizing:border-box;width:100%;height:220px;font:12px/1.5 monospace;background:#2c292d;color:#f1e4cb;padding:14px;border-radius:8px}button,a.button{display:inline-block;font:inherit;color:#fff8e9;background:#6c684c;border:0;border-radius:8px;padding:10px 16px;text-decoration:none;cursor:pointer}.muted{color:#746759;font-size:14px}li{margin-bottom:8px}pre{overflow:auto;background:#ece2d2;padding:16px;border-radius:8px}.check{display:block;margin-bottom:12px;font-weight:700}</style><h1>우리의 작은 수리점 · 0.5.6 연결 순서</h1><section><h2>아이폰 홈 화면 실행</h2><p>Safari에서 배포된 게임 주소를 열고 공유/더보기 → 홈 화면에 추가를 선택하세요. 웹 앱으로 열기가 표시되면 켜고, 추가된 아이콘으로 실행해 기기를 가로로 돌리세요. 멀티플레이 방 참가도 이 아이콘에서 시작합니다. 별도 가입은 필요하지 않습니다.</p></section><section><h2>이번 버전: 세 사람의 공정 분담</h2><p>A는 점검·분해·세척 후 B 대기함으로 전달, B는 교체·조립·복원·검사, C는 응대·매입·판매·진열·정리를 맡습니다. A와 B는 서로 다른 물건을 동시에 작업합니다.</p><p>기존 SQL은 동일합니다. 이미 실행했다면 1단계는 건너뛰세요. 기존 config.js 접속 정보는 유지하고 전원 같은 0.5.6 파일을 사용하세요.</p></section><p>이미 만든 Supabase 프로젝트와 GitHub 저장소를 사용합니다. 가입은 다시 하지 않습니다.<br>이 파일은 설명과 SQL 복사만 제공하며 서버에 접속하거나 설정을 실행하지 않습니다.</p><section><h2>1. 기존 Supabase에 추가 SQL 실행</h2><ol><li>기존 프로젝트를 열고 왼쪽 <b>SQL Editor → 새 쿼리</b>를 선택합니다.</li><li>아래 SQL 전체를 복사해 붙여넣고 <b>Run</b>을 누릅니다.</li><li><b>Success / No rows returned</b>가 나오면 다음 단계로 갑니다. 오류가 나면 문구와 줄 번호를 확인합니다.</li></ol><p>예전 SQL과 테이블은 삭제하지 않습니다. 이번 코드는 새 <code>cr5_</code> 테이블·함수를 추가합니다.</p><button id="copy">추가 SQL 전체 복사</button><p id="copy-status" class="muted"></p><textarea id="sql" readonly>-- Cozy Repair v0.5: additive schema. Does not drop or change earlier game tables.
+begin;
+create table if not exists public.cr5_rooms (
+ id uuid primary key default gen_random_uuid(), code text unique not null,
+ host_id uuid not null references auth.users(id), state jsonb not null,
+ revision bigint not null default 0, running boolean not null default false,
+ updated_at timestamptz not null default now()
+);
+create table if not exists public.cr5_members (
+ room_id uuid not null references public.cr5_rooms(id) on delete cascade,
+ user_id uuid not null references auth.users(id), slot integer not null check(slot between 0 and 2),
+ name text not null, ready boolean not null default false,
+ x double precision not null default 160, y double precision not null default 286,
+ dir text not null default &#x27;front&#x27;, walking boolean not null default false,
+ last_seen timestamptz not null default now(),
+ primary key(room_id,user_id), unique(room_id,slot)
+);
+create table if not exists public.cr5_actions (
+ id uuid primary key, room_id uuid not null references public.cr5_rooms(id) on delete cascade,
+ user_id uuid not null references auth.users(id), slot integer not null,
+ action text not null, payload jsonb not null default &#x27;{}&#x27;, done boolean not null default false,
+ accepted boolean, message text, created_at timestamptz not null default now()
+);
+create index if not exists cr5_actions_pending on public.cr5_actions(room_id,created_at) where not done;
+alter table public.cr5_rooms enable row level security;
+alter table public.cr5_members enable row level security;
+alter table public.cr5_actions enable row level security;
+create or replace function public.cr5_is_member(p_room uuid) returns boolean language sql stable security definer set search_path=public as $$
+ select exists(select 1 from public.cr5_members where room_id=p_room and user_id=auth.uid());
+$$;
+drop policy if exists cr5_read_rooms on public.cr5_rooms;
+create policy cr5_read_rooms on public.cr5_rooms for select to authenticated using(public.cr5_is_member(id));
+drop policy if exists cr5_read_members on public.cr5_members;
+create policy cr5_read_members on public.cr5_members for select to authenticated using(public.cr5_is_member(room_id));
+revoke all on public.cr5_rooms,public.cr5_members,public.cr5_actions from anon,authenticated;
+grant select on public.cr5_rooms,public.cr5_members to authenticated;
+create or replace function public.cr5_create(p_state jsonb,p_name text) returns jsonb language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;begin
+ if auth.uid() is null then raise exception &#x27;로그인이 필요합니다&#x27;;end if;
+ if (p_state-&gt;&gt;&#x27;schema&#x27;)::integer&lt;&gt;5 or octet_length(p_state::text)&gt;200000 then raise exception &#x27;저장 형식 오류&#x27;;end if;
+ insert into public.cr5_rooms(code,host_id,state) values(upper(substr(replace(gen_random_uuid()::text,&#x27;-&#x27;,&#x27;&#x27;),1,8)),auth.uid(),p_state) returning * into r;
+ insert into public.cr5_members(room_id,user_id,slot,name,ready) values(r.id,auth.uid(),0,left(coalesce(p_name,&#x27;고양이 A&#x27;),20),true);
+ return to_jsonb(r);
+end;$$;
+create or replace function public.cr5_join(p_code text,p_name text) returns jsonb language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;v_slot integer;begin
+ if auth.uid() is null then raise exception &#x27;로그인이 필요합니다&#x27;;end if;
+ select * into r from public.cr5_rooms where code=upper(trim(p_code)) for update;
+ if not found then raise exception &#x27;방 코드를 확인해 주세요&#x27;;end if;
+ if not exists(select 1 from public.cr5_members where room_id=r.id and user_id=auth.uid()) then
+  select s into v_slot from generate_series(0,2) s where not exists(select 1 from public.cr5_members m where m.room_id=r.id and m.slot=s) order by s limit 1;
+  if v_slot is null then raise exception &#x27;3명의 공동 상점입니다. 자리가 없습니다&#x27;;end if;
+  insert into public.cr5_members(room_id,user_id,slot,name,x,y) values(r.id,auth.uid(),v_slot,left(coalesce(p_name,&#x27;고양이&#x27;),20),case v_slot when 1 then 336 else 450 end,case v_slot when 1 then 216 else 280 end);
+ end if;
+ return to_jsonb(r);
+end;$$;
+create or replace function public.cr5_sync(p_room uuid,p_pose jsonb default &#x27;{}&#x27;,p_ready boolean default null) returns jsonb language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;v_members jsonb;v_actions jsonb;v_receipts jsonb;begin
+ if not public.cr5_is_member(p_room) then raise exception &#x27;상점 참여 권한이 없습니다&#x27;;end if;
+ update public.cr5_members set last_seen=now(),ready=coalesce(p_ready,ready),
+ x=case when p_pose ? &#x27;x&#x27; then greatest(0,least(512,(p_pose-&gt;&gt;&#x27;x&#x27;)::double precision)) else x end,
+ y=case when p_pose ? &#x27;y&#x27; then greatest(0,least(342,(p_pose-&gt;&gt;&#x27;y&#x27;)::double precision)) else y end,
+ dir=case when p_pose-&gt;&gt;&#x27;dir&#x27; in(&#x27;front&#x27;,&#x27;back&#x27;,&#x27;left&#x27;,&#x27;right&#x27;) then p_pose-&gt;&gt;&#x27;dir&#x27; else dir end,
+ walking=coalesce((p_pose-&gt;&gt;&#x27;walking&#x27;)::boolean,false)
+ where room_id=p_room and user_id=auth.uid();
+ select * into r from public.cr5_rooms where id=p_room;
+ select coalesce(jsonb_agg(to_jsonb(m) order by slot),&#x27;[]&#x27;) into v_members from public.cr5_members m where room_id=p_room;
+ if r.host_id=auth.uid() then select coalesce(jsonb_agg(to_jsonb(a) order by created_at),&#x27;[]&#x27;) into v_actions from(select * from public.cr5_actions where room_id=p_room and not done order by created_at,id limit 50)a;else v_actions=&#x27;[]&#x27;;end if;
+ select coalesce(jsonb_agg(to_jsonb(a)),&#x27;[]&#x27;) into v_receipts from(select id,accepted,message,created_at from public.cr5_actions where room_id=p_room and user_id=auth.uid() and done order by created_at desc limit 12)a;
+ return jsonb_build_object(&#x27;room&#x27;,to_jsonb(r),&#x27;members&#x27;,v_members,&#x27;actions&#x27;,v_actions,&#x27;receipts&#x27;,v_receipts);
+end;$$;
+create or replace function public.cr5_start(p_room uuid) returns boolean language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;begin
+ select * into r from public.cr5_rooms where id=p_room for update;
+ if r.host_id is distinct from auth.uid() or auth.uid() is null then raise exception &#x27;방장만 시작할 수 있습니다&#x27;;end if;
+ if(select count(*) from public.cr5_members where room_id=p_room and ready and last_seen&gt;now()-interval &#x27;20 seconds&#x27;)&lt;&gt;3 then raise exception &#x27;3명 모두 접속해 준비를 눌러 주세요&#x27;;end if;
+ update public.cr5_rooms set running=true,updated_at=now() where id=p_room;return true;
+end;$$;
+create or replace function public.cr5_enqueue(p_room uuid,p_id uuid,p_action text,p_payload jsonb default &#x27;{}&#x27;) returns uuid language plpgsql security definer set search_path=public as $$
+declare m public.cr5_members;begin
+ select * into m from public.cr5_members where room_id=p_room and user_id=auth.uid();
+ if not found then raise exception &#x27;상점 참여 권한이 없습니다&#x27;;end if;
+ if not exists(select 1 from public.cr5_rooms where id=p_room and running) then raise exception &#x27;게임 시작을 기다려 주세요&#x27;;end if;
+ if p_action not in(&#x27;counter&#x27;,&#x27;release&#x27;,&#x27;serve&#x27;,&#x27;negotiate&#x27;,&#x27;dismiss&#x27;,&#x27;begin&#x27;,&#x27;screw&#x27;,&#x27;replace&#x27;,&#x27;wipe&#x27;,&#x27;rotate&#x27;,&#x27;fit&#x27;,&#x27;test&#x27;,&#x27;cancel&#x27;,&#x27;pass&#x27;,&#x27;exhibit&#x27;,&#x27;order&#x27;,&#x27;claim&#x27;,&#x27;upgrade&#x27;,&#x27;nextday&#x27;,&#x27;ping&#x27;) or octet_length(p_payload::text)&gt;4096 then raise exception &#x27;지원하지 않는 요청&#x27;;end if;
+ if(select count(*) from public.cr5_actions where room_id=p_room and user_id=auth.uid() and not done)&gt;40 then raise exception &#x27;처리 중인 작업을 기다려 주세요&#x27;;end if;
+ insert into public.cr5_actions(id,room_id,user_id,slot,action,payload) values(p_id,p_room,auth.uid(),m.slot,p_action,p_payload) on conflict(id) do nothing;return p_id;
+end;$$;
+create or replace function public.cr5_commit(p_room uuid,p_revision bigint,p_state jsonb,p_receipts jsonb default &#x27;[]&#x27;) returns bigint language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;v jsonb;begin
+ select * into r from public.cr5_rooms where id=p_room for update;
+ if auth.uid() is null or r.host_id is distinct from auth.uid() then raise exception &#x27;현재 방장만 상태를 저장할 수 있습니다&#x27;;end if;
+ if r.revision&lt;&gt;p_revision then raise exception &#x27;REVISION_CONFLICT&#x27;;end if;
+ if(p_state-&gt;&gt;&#x27;schema&#x27;)::integer&lt;&gt;5 or octet_length(p_state::text)&gt;200000 or jsonb_typeof(p_receipts)&lt;&gt;&#x27;array&#x27; or jsonb_array_length(p_receipts)&gt;50 then raise exception &#x27;저장 형식 오류&#x27;;end if;
+ update public.cr5_rooms set state=p_state,revision=revision+1,updated_at=now() where id=p_room;
+ for v in select * from jsonb_array_elements(p_receipts) loop
+  update public.cr5_actions set done=true,accepted=(v-&gt;&gt;&#x27;accepted&#x27;)::boolean,message=left(v-&gt;&gt;&#x27;message&#x27;,300) where room_id=p_room and id=(v-&gt;&gt;&#x27;id&#x27;)::uuid and not done;
+ end loop;
+ delete from public.cr5_actions where room_id=p_room and done and created_at&lt;now()-interval &#x27;1 day&#x27;;
+ return r.revision+1;
+end;$$;
+create or replace function public.cr5_takeover(p_room uuid) returns boolean language plpgsql security definer set search_path=public as $$
+declare r public.cr5_rooms;v_candidate uuid;begin
+ if not public.cr5_is_member(p_room) then raise exception &#x27;상점 참여 권한이 없습니다&#x27;;end if;
+ select * into r from public.cr5_rooms where id=p_room for update;
+ if exists(select 1 from public.cr5_members where room_id=p_room and user_id=r.host_id and last_seen&gt;now()-interval &#x27;20 seconds&#x27;) then return false;end if;
+ select user_id into v_candidate from public.cr5_members where room_id=p_room and last_seen&gt;now()-interval &#x27;10 seconds&#x27; order by slot limit 1;
+ if v_candidate is distinct from auth.uid() then return false;end if;
+ update public.cr5_rooms set host_id=auth.uid(),revision=revision+1,updated_at=now() where id=p_room;return true;
+end;$$;
+-- Realtime receives room revisions; RPC remains the durable authority.
+do $$ begin
+ if exists(select 1 from pg_publication where pubname=&#x27;supabase_realtime&#x27;) and not exists(select 1 from pg_publication_tables where pubname=&#x27;supabase_realtime&#x27; and schemaname=&#x27;public&#x27; and tablename=&#x27;cr5_rooms&#x27;) then
+ alter publication supabase_realtime add table public.cr5_rooms;
+ end if;
+end $$;
+-- Grant only these functions. Existing application grants are untouched.
+do $$ declare r record;begin for r in select p.oid::regprocedure as signature from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname=&#x27;public&#x27; and p.proname like &#x27;cr5\_%&#x27; escape &#x27;\&#x27; loop
+ execute format(&#x27;revoke all on function %s from public,anon&#x27;,r.signature);
+ execute format(&#x27;grant execute on function %s to authenticated&#x27;,r.signature);
+end loop;end $$;
+commit;
+</textarea></section><section><h2>2. 기존 공개 접속 정보 입력</h2><ol><li>Supabase 프로젝트의 <b>Connect</b>에서 Project URL과 publishable key를 확인합니다. 키 목록은 <b>Settings → API Keys</b>에서도 확인할 수 있습니다.</li><li>압축을 푼 폴더의 <code>config.js</code>를 메모장으로 열어 두 빈칸에 넣고 저장합니다.</li></ol><pre>window.SHOP_CONFIG = {
+  supabaseUrl: '여기에 Project URL',
+  supabaseAnonKey: '여기에 공개 publishable 또는 anon 키'
+};</pre><p>공개 키만 사용합니다. <b>service_role·sb_secret_·DB 암호는 넣지 않습니다.</b> 공개 접속 정보는 이번 산출물에 들어 있지 않습니다.</p><p class="muted">config.js를 수정하지 않고 각 기기의 게임 연결 설정에서 입력할 수도 있습니다.</p></section><section><h2>3. 기존 GitHub 저장소에 업로드</h2><p><code>kiesi10041-jpg/cozy-repair-cat</code> → <b>Add file → Upload files</b>.</p><p>아래 파일과 폴더를 저장소 <b>최상위</b>에 올리고 Commit changes를 누릅니다.</p><pre>index.html
+config.js
+assets/   ← 폴더째
+src/      ← 폴더째
+manifest.webmanifest
+sw.js
+.nojekyll</pre><p><b>ZIP 파일 자체만 올리지 마세요.</b> index.html만 올려도 실행되지 않습니다. 폴더 구조를 유지해야 합니다.</p><p>Settings → Pages → Source: <b>Deploy from a branch</b> → <b>main / (root)</b> → Save.<br>이미 같은 설정이면 변경하지 않습니다. Pages에 표시된 실제 접속 주소를 사용합니다.</p></section><section><h2>4. 세 명이 실제 연결 확인</h2><ol><li>각자 <b>다른 기기 또는 별도 브라우저 프로필</b>에서 게임 주소를 엽니다.</li><li>첫 사람: <b>3인 멀티 / 연결 설정 → 서버 연결 → 이름 → 새 공동 상점 만들기</b>.</li><li>나머지 두 사람: 같은 화면에서 이름과 <b>8자리 방 코드 → 참가</b>.</li><li>세 명 모두 <b>준비하기</b>, 방장이 <b>영업 시작</b>.</li><li>공동머니·카운터 점유·수리 넘기기·재접속을 확인합니다.</li></ol><p class="muted">같은 브라우저의 탭 3개는 동일한 익명 로그인 신원을 공유할 수 있습니다. 익명 신원은 브라우저 데이터 삭제나 다른 기기로 자동 이전되지 않습니다.</p></section><section><h2>검증 범위와 남은 부분</h2><p>물건 이미지·수리·진열·저장 이어하기는 브라우저에서 확인했습니다. 3인 공동 상태·재시도·방장 인계는 모의 연결 검사까지 통과했습니다.</p><p><b>실제 Supabase SQL·RLS·3기기 멀티 검증은 아직 하지 않았습니다.</b> 배경 확장·두 번째 작업대 원화·고양이/말 NPC 원화·품목별 상급 퍼즐은 후속 작업입니다. 자세한 상태는 README.md와 DEVELOPMENT.md에 있습니다.</p></section><script>document.getElementById('copy').onclick=async()=>{const el=document.getElementById('sql');try{await navigator.clipboard.writeText(el.value);document.getElementById('copy-status').textContent='전체 SQL을 복사했습니다.'}catch{el.focus();el.select();document.getElementById('copy-status').textContent='SQL을 선택했습니다. Ctrl+C로 복사해 주세요.'}}</script></html>

@@ -1,0 +1,69 @@
+{
+  "version": "0.5.6",
+  "browser": [
+    "844x390 landscape map/warehouse",
+    "parts atlas and compatible items",
+    "counter left approach",
+    "item-focused trade valuation",
+    "explicit rejection and agreement dialogue",
+    "purchase and save",
+    "warehouse to repair entry",
+    "original room day/night lighting",
+    "asking price 180 to 230 saved and shown on tag",
+    "withdraw/relist to another tray retains 230",
+    "shared customer/item/counter scene",
+    "buyer counteroffers 173 to 186 to 195, input preserved",
+    "counter staff upper body visible"
+  ],
+  "automated": [
+    "8-item repair and sale",
+    "A/B/C independent pipeline",
+    "display choice/move/swap/withdraw",
+    "stock and correct material",
+    "new single-customer admission and cooldown",
+    "close removes customers and counter owner",
+    "in-progress work retained overnight",
+    "old queues/saves migrated",
+    "old guest sprites exit",
+    "4 counter routes and 18 station routes",
+    "day/evening/night renderer smoke",
+    "fullscreen root, standalone fallback and PNG icon",
+    "3-client network mocks and retry/takeover",
+    "asking price required before display",
+    "reference vs asking price preserved",
+    "asking-price range and old display migration",
+    "saved price feeds buyer quote",
+    "reprice invalidates stale quote",
+    "repeated concessions change price",
+    "renegotiation after agreement before confirm",
+    "excessive lowballs may end trade",
+    "shared transaction scene for 8 objects"
+  ],
+  "notVerified": [
+    "physical iPhone Safari/home-screen execution",
+    "physical mobile keyboard/touch/haptics",
+    "live Supabase/RLS/Realtime",
+    "3 physical devices"
+  ],
+  "preserved": [
+    "original scene and player assets",
+    "existing SQL",
+    "shop config must be retained by user"
+  ],
+  "v057": {
+    "freeListingAndOfferPrices": true,
+    "overpricedBuyerRefusal": true,
+    "lowerOfferCanSell": true,
+    "noNativeValidityPopups": true,
+    "desktopSpeechAndControlsVerified": true,
+    "counterUpperBodyVerified": true,
+    "realIPhoneTested": false
+  },
+  "v058": {
+    "worldSprites": 8,
+    "mapAndDisplaySameAtlas": true,
+    "nativeCharacterGrid": true,
+    "fourAndSixSlotRendered": true,
+    "worldArtAndRenderTestsPassed": true
+  }
+}
