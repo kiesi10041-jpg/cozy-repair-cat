@@ -16,5 +16,5 @@ async function fullscreen(){
  if(request){try{await request.call(root);try{await screen.orientation?.lock?.('landscape')}catch{}return}catch{}}
  if(!navigator.standalone)guide();
 }
-$('fullscreen').onclick=fullscreen;$('screen-toggle').onclick=fullscreen;window.addEventListener('resize',layout);window.addEventListener('orientationchange',layout);layout();
+$('fullscreen').onclick=fullscreen;window.addEventListener('resize',layout);window.addEventListener('orientationchange',layout);layout();
 })();

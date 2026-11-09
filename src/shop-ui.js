@@ -32,6 +32,7 @@ for(const p of Object.keys(ShopGame.parts))$('order-'+p).onclick=()=>{act('order
 $('nextday').onclick=()=>{act('nextday');updatePanel()};$('speed').onchange=e=>{speed=Number(e.target.value)||1};
 function put(id,text){if($(id).textContent!==text)$(id).textContent=text}
 function updatePanel(){if(pendingWork){if(game.getJob(pendingWork.station)?.repair.item.id===pendingWork.itemId)pendingWork=null;else if(Date.now()-pendingWork.at>12000){pendingWork=null;if(mode==='work')open('picker');say('인수를 확인하지 못했어요. 목록과 연결 상태를 확인하고 다시 선택해 주세요.')}}const hour=Math.floor(game.time),minute=Math.min(59,Math.floor((game.time-hour)*60));put('shop-hud',game.day+'일차 · '+String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')+' · '+game.period+' · '+game.money+'원');
+ put('rail-hud',$('shop-hud').textContent);
  put('queue','응대 손님 '+game.customers.length+' / 1명 · 수리 전 '+game.pending.length+'개 · 수리 완료 '+game.ready.length+'개 · 진열 '+game.display.filter(Boolean).length+'/'+game.capacity);put('customer',game.customers[0]?'맨 앞 손님 · '+(game.customers[0].type==='buy'?'진열품 구매':'고장품 매각'):'손님을 기다리고 있어요');
  put('stock',Object.entries(ShopGame.parts).map(([p,v])=>v.name+' '+game.stock[p]+'개').join(' · '));put('deliveries',game.deliveries.filter(d=>d.state!=='claimed').map(d=>ShopGame.parts[d.part].name+' '+(d.state==='arrived'?'입구 도착':Math.ceil(d.eta)+'초 후 도착')).join(' / ')||'배송 중인 부품 없음');
  put('inventory',game.display.map((v,i)=>(i+1)+'번 '+(v?v.name:'빈 칸')).join(' · '));$('nextday').hidden=!game.closed;
@@ -73,7 +74,16 @@ function updatePanel(){if(pendingWork){if(game.getJob(pendingWork.station)?.repa
 }
 const rabbitClean=new Image();rabbitClean.src='assets/rabbit-clean.png';
 const tradeRoom=document.createElement('canvas');tradeRoom.width=512;tradeRoom.height=342;
-const itemAtlas=new Image();itemAtlas.src='assets/antiques-atlas.png';
+const itemAtlas=new Image();
+const itemArtReady=new Promise((resolve,reject)=>{
+ itemAtlas.onload=resolve;
+ itemAtlas.onerror=()=>{
+   itemAtlas.onload=resolve;
+   itemAtlas.onerror=()=>reject(Error('수리 물품 그림을 불러오지 못했어요. 다시 열어 주세요.'));
+   itemAtlas.src=window.SHOP_ITEM_BACKUP;
+ };
+ itemAtlas.src='assets/antiques-atlas.png';
+});
 function drawAntique(c,v,state,x,y,w,h){
  if(!v||!itemAtlas.complete||!itemAtlas.naturalWidth)return;
  const index=ShopGame.catalog.findIndex(i=>i.kind===v.kind);if(index<0)return;
@@ -103,9 +113,20 @@ function paintGuest(g){
 const paintErrors=new Set();function reportPaintError(error){const key=error?.message||String(error);if(!paintErrors.has(key)){paintErrors.add(key);console.error('장면 표시 오류:',error)}}
 function draw(){ctx.clearRect(0,0,1024,684);ctx.imageSmoothingEnabled=false;ctx.drawImage(images.room,0,0,1024,684);
  // Each furniture silhouette has its own exact depth; side clearance keeps sprites out of its edge.
- const furniture=[['table',258],['counter',166],['repair',260],['plant',307],['crates',242],['post-left',342],['post-right',342]],layers=players.map(p=>({depth:p.y,paint:()=>paintPlayer(p)}));
+ const furniture=[['table',258],['repair',260],['plant',307],['crates',242],['post-left',342],['post-right',342]],layers=players.map(p=>({depth:p.y,paint:()=>{
+  // Only feet behind the rear edge of the desk are occluded. The bell and
+  // the counter bitmap can never paint over a walking character's torso.
+  if(p.x>=335&&p.x<=492&&p.y<=123){ctx.save();ctx.beginPath();ctx.rect(0,0,1024,236);ctx.clip();paintPlayer(p);ctx.restore()}
+  else paintPlayer(p)
+ }}));
  for(const[n,d]of furniture)layers.push({depth:d,paint:()=>{ctx.drawImage(images['foreground-'+n],0,0,1024,684);if(n==='table')ShopWorldItems.table(ctx,images.room,game.capacity,2)}});
- for(const g of guests.values())layers.push({depth:g.y,paint:()=>paintGuest(g)});
+ for(const [id,g] of guests)layers.push({depth:g.y,paint:()=>{
+   paintGuest(g);
+   const customer=game.customers.find(v=>v.id===id);
+   if(customer?.type==='repair'&&customer.item&&!g.leaving){
+     ShopWorldItems.draw(ctx,images['world-items'],customer.item,g.x+14,g.y-8,2,true);
+   }
+ }});
  layers.push({depth:259,paint:()=>game.display.forEach((v,i)=>{if(v){const cols=game.capacity>4?3:2;drawItem(ctx,v,((cols===3?200:210)+i%cols*(cols===3?36:54))*2,(190+Math.floor(i/cols)*38)*2,cols===3?.8:1)}})});layers.sort((a,b)=>a.depth-b.depth).forEach(l=>{try{l.paint()}catch(e){reportPaintError(e)}});
  const t=game.time;ShopLighting.paint(ctx,t);
  // Clock hands are driven by the same simulation clock as customers and deliveries.
@@ -208,7 +229,7 @@ function expansionPanel(){flowPanel();materialStatus();if(!partCatalogReady&&Sho
  if(catalogToken!==token&&itemAtlas.complete&&itemAtlas.naturalWidth){catalogToken=token;const catalog=$('item-catalog');catalog.textContent='';for(const def of ShopGame.catalog){const card=document.createElement('article');card.className='catalog-card'+(def.tier>game.tier?' locked':'');const c=document.createElement('canvas');c.width=180;c.height=180;drawAntique(c.getContext('2d'),def,'restored',0,0,180,180);const title=document.createElement('strong');title.textContent=def.name;const caption=document.createElement('p');caption.textContent=def.tier>game.tier?(def.tier===1?'판매 2건 후 해금':'판매 5건 후 해금'):'기준가 '+def.price+'원';card.append(c,title,caption);catalog.append(card)}}
  put('ledger',game.ledger.slice(0,8).map(x=>x.day+'일차 '+x.item+' '+(x.amount>0?'+':'')+x.amount+'원').join(' / ')||'거래 기록이 여기에 쌓입니다.');
 }
-itemAtlas.onload=()=>{catalogToken=null;updatePanel()};
+
 for(const[type,id]of[['wipe','wipe-item'],['rotate','rotate-part'],['fit','fit-part'],['pass','pass-repair']])$(id).onclick=()=>{act(type);if(type==='pass')close();updatePanel()};
 for(const kind of['tools','marketing','shop'])$('upgrade-'+kind).onclick=()=>{act('upgrade',{kind});updatePanel()};
 for(const b of document.querySelectorAll('[data-ping]'))b.onclick=()=>{act('ping',{symbol:b.dataset.ping});if(navigator.vibrate)navigator.vibrate(35)};
@@ -230,5 +251,5 @@ $('ready-room').onclick=()=>networkTask(async()=>{if(!room.room)throw Error('먼
 $('start-room').onclick=()=>networkTask(()=>room.start());
 window.addEventListener('beforeunload',()=>{if(!online)ShopSave.write(game)});
 
-Promise.all(Object.entries(window.GAME_ASSETS).map(([n,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{images[n]=im;resolve()};im.onerror=()=>reject(Error('이미지 로딩 실패: '+n));im.src=url}))).then(()=>{loaded=true;$('counter-bg').src=window.GAME_ASSETS['counter-scene'];$('loading').hidden=true;say(game.notice);updatePanel();requestAnimationFrame(tick)}).catch(e=>{$('loading').textContent=e.message});
+Promise.all([itemArtReady,...Object.entries(window.GAME_ASSETS).map(([n,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{images[n]=im;resolve()};im.onerror=()=>reject(Error('이미지 로딩 실패: '+n));im.src=url}))]).then(()=>{loaded=true;$('counter-bg').src=window.GAME_ASSETS['counter-scene'];$('loading').hidden=true;say(game.notice);updatePanel();requestAnimationFrame(tick)}).catch(e=>{$('loading').textContent=e.message});
 })();

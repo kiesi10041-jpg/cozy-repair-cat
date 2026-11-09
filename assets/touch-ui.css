@@ -159,3 +159,24 @@
  #bench-choices button[aria-pressed=true]{background:#66703e;outline:2px solid #ffdf8d;outline-offset:-2px}
  #bench-choices button canvas{display:inline-block;width:34px;height:34px;vertical-align:middle;pointer-events:none}
 }
+
+/* The canvas is clipped by its own viewport. Both control rails sit outside it. */
+@media (orientation:landscape) {
+ .game-layout[data-page=map] main {background:#292329;}
+ .game-layout[data-page=map] .stage {
+   --left-gap:calc(var(--rail-left) + var(--rail) + 4px);
+   --right-gap:calc(var(--rail-right) + var(--rail) + 4px);
+   margin-left:var(--left-gap);width:calc(100% - var(--left-gap) - var(--right-gap));
+   padding:0;container-type:inline-size;
+ }
+ .game-layout[data-page=map]:not(.map-overview) #game {
+   --room-h:max(100dvh,calc((100vw - var(--left-gap) - var(--right-gap)) * 684 / 1024));
+ }
+ .game-layout[data-page=map] #game-nav {grid-template-columns:repeat(2,minmax(0,1fr));width:var(--rail);}
+ .game-layout[data-page=map] #shop-hud {position:fixed;left:auto;right:var(--rail-right);top:var(--rail-top);width:var(--rail);}
+}
+#rail-hud{display:none}
+@media (orientation:landscape){
+ .game-layout[data-page=map] #shop-hud{display:none;}
+ .game-layout[data-page=map] #rail-hud{display:block;position:fixed;z-index:2;right:var(--rail-right);top:var(--rail-top);width:var(--rail);font-size:12px;line-height:1.35;padding:4px;color:#38251d;border:6px solid #865623;border-image:url('dialogue-paper.png') 105 fill stretch;pointer-events:none;}
+}
