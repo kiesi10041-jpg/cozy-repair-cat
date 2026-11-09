@@ -17,3 +17,145 @@
 .game-layout[data-page=settings] .extension-panel{display:grid;grid-template-rows:32px 40px minmax(0,1fr);gap:4px}.game-layout .extension-panel .panel-title .eyebrow{display:none}.game-layout .extension-panel .panel-title h2{font-size:16px;margin:0}.game-layout .touch-settings-tabs{display:flex;gap:6px}.game-layout .touch-settings-tabs button{min-height:36px;padding:4px 12px;background:#44382f;color:#fff0ce;border:1px solid #b19361;border-radius:5px}.game-layout .touch-settings-tabs [aria-pressed=true]{background:#706044}.game-layout .touch-setting-pane{display:none;min-height:0;overflow:hidden}.game-layout .extension-panel[data-setting=save] [data-setting=save],.game-layout .extension-panel[data-setting=shop] [data-setting=shop],.game-layout .extension-panel[data-setting=catalog] [data-setting=catalog]{display:block}.game-layout .touch-setting-pane .toolbar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;align-content:center;height:100%}.game-layout .touch-setting-pane .toolbar button,.game-layout .file-button{height:48px;min-height:48px;font-size:13px;display:flex;align-items:center;justify-content:center}.game-layout .upgrade-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.game-layout .upgrade-grid button{min-height:65px!important}.game-layout .ping-bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.game-layout .touch-setting-pane details{margin:0;padding:0;background:none;border:0}.game-layout .touch-setting-pane summary{display:none}.game-layout #item-catalog{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.game-layout .catalog-card{height:130px;padding:5px}.game-layout .catalog-card canvas{height:65px;width:100%;object-fit:contain}.game-layout .catalog-card strong{font-size:13px}.game-layout .catalog-card p{font-size:11px}.game-layout .catalog-off-page{display:none!important}.game-layout .catalog-pages{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:5px}.game-layout #ledger{font-size:11px;line-height:1.4;margin-top:4px}
 .game-layout .inventory-layout{grid-template-rows:minmax(0,1fr);height:100%;overflow:hidden}.game-layout #picker-items,.game-layout #warehouse-grid{min-height:0!important;max-height:100%;height:100%;grid-template-rows:repeat(2,minmax(0,1fr))}.game-layout #picker-items .inventory-slot{min-height:0!important;max-height:100%;height:100%}.game-layout #work-picker>.business-actions{margin:0;min-height:0;align-items:stretch}.game-layout #work-picker>.business-actions button{height:40px;min-height:40px;padding:3px 9px}.game-layout #picker-title{font-size:16px;line-height:22px}
 .game-layout .inventory-slot{overflow:hidden}.game-layout #picker-items .inventory-slot canvas,.game-layout #warehouse-grid .inventory-slot canvas{display:block;width:100%!important;height:100%!important;max-height:100%;object-fit:contain}
+
+/* In landscape the short dimension belongs to the room. Keep touch controls
+   in the side margins, including when Safari shows its tab and address bars. */
+@media (orientation: landscape) {
+  .game-layout[data-page=map] {
+    --rail: clamp(104px, 15vw, 156px);
+    --rail-left: max(4px, env(safe-area-inset-left));
+    --rail-right: max(4px, env(safe-area-inset-right));
+    --rail-top: max(4px, env(safe-area-inset-top));
+    --rail-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .game-layout[data-page=map] .stage {
+    height: 100dvh;
+    padding: env(safe-area-inset-top) calc(var(--rail-right) + var(--rail) + 4px)
+             env(safe-area-inset-bottom) calc(var(--rail-left) + var(--rail) + 4px);
+  }
+  .game-layout[data-page=map] #game {
+    width: min(100%, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 1024 / 684));
+    height: auto;
+  }
+  .game-layout[data-page=map] #game-nav {
+    position: fixed; z-index: 2; top: var(--rail-top); left: var(--rail-left);
+    display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 3px;
+    width: var(--rail); height: auto; padding: 0; border: 0; background: none;
+  }
+  .game-layout[data-page=map] #game-nav strong,
+  .game-layout[data-page=map] #game-nav [data-page=map] { display: none; }
+  .game-layout[data-page=map] #game-nav button { padding: 2px; font-size: 12px; min-height: 44px; }
+  .game-layout[data-page=map] .characters {
+    position: fixed; top: auto; bottom: var(--rail-bottom); left: var(--rail-left);
+    width: var(--rail); gap: 3px;
+  }
+  .game-layout[data-page=map] .characters button { min-height: 44px; }
+  .game-layout[data-page=map] .stage .hud {
+    top: var(--rail-top); right: var(--rail-right); width: var(--rail);
+    font-size: 12px; line-height: 1.3; padding: 5px;
+  }
+  .game-layout[data-page=map] .business {
+    left: auto; right: var(--rail-right); bottom: var(--rail-bottom);
+    width: var(--rail); height: auto; background: none; padding: 0;
+  }
+  .game-layout[data-page=map] .business .business-actions { display: grid; gap: 3px; }
+  .game-layout[data-page=map] .business>.business-actions button {
+    min-height: 44px; padding: 2px; font-size: 12px; line-height: 1.15;
+  }
+  .game-layout[data-page=map] .business-actions .art-button:before {
+    width: 20px; height: 20px; margin-right: 2px;
+  }
+}
+
+/* Align the interactive target's centre with its painted mark at all sizes. */
+.workshop-overlay .workshop-hotspot { transform:translate(-50%,-50%)!important; }
+#map-view { display:none; }
+.trade-speech, .game-layout #counter-view .bargain, .game-layout .trade-facts,
+.game-layout[data-page=map] .stage .hud, .game-layout .work-help>* {
+  border:8px solid #865623;
+  border-image:url('dialogue-paper.png') 105 fill stretch;
+  color:#38251d;
+}
+.trade-speech :is(#dialogue,h2,small),
+.game-layout #counter-view .bargain :is(label,#deal-price,#deal-range),
+.game-layout .trade-facts #value-margin {color:#38251d;}
+.trade-speech #dialogue {background:none;border:0;padding:0;line-height:1.4;}
+@media (orientation:landscape) {
+  .game-layout[data-page=map] #map-view {display:block;}
+  .game-layout[data-page=map]:not(.map-overview) .stage {padding:0;}
+  .game-layout[data-page=map]:not(.map-overview) #game {
+    --room-h:max(100dvh,66.796875vw);
+    position:absolute;width:auto;max-width:none;height:var(--room-h);
+    top:clamp(calc(100% - var(--room-h)),calc(50% - var(--focus,.65)*var(--room-h)),0px);
+  }
+  .game-layout[data-page=map] #game-nav button,.game-layout[data-page=map] .characters button,
+  .game-layout[data-page=map] .business-actions button {
+    background:#30231de8;border:1px solid #d1aa69;color:#fff2cb;
+  }
+  .game-layout[data-page=map] .characters [aria-pressed=true]{background:#715335;}
+  .game-layout .camera[data-mode=counter] .camera-shell {padding-bottom:max(3px,env(safe-area-inset-bottom));}
+  .game-layout #counter-view:not([hidden]) {grid-template-rows:minmax(0,1fr);align-items:stretch;}
+  .game-layout #counter-view .trade-object,.game-layout #counter-view .conversation {height:100%;min-height:0;align-self:stretch;}
+  .game-layout #counter-view .trade-item-stage {height:100%;width:100%;aspect-ratio:auto;}
+  .game-layout #counter-view #item-view {object-fit:cover!important;object-position:56% 75%;}
+  .game-layout #counter-view .trade-item-caption {height:auto;overflow:visible;}
+  .game-layout #counter-view .trade-object {grid-template-rows:minmax(0,1fr) auto;}
+  .game-layout #counter-view .trade-item-caption p {display:block;}
+  .game-layout #counter-view .trade-speech {width:40%;max-width:240px;padding:3px 6px;}
+  .game-layout .camera[data-mode=work][data-touch-pane=work] .camera-shell {
+    --tools:clamp(140px,23vw,220px);
+    padding:max(4px,env(safe-area-inset-top)) max(4px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));
+    background:#493729 url('workbench-background.png') center/cover;
+  }
+  .game-layout .camera[data-mode=work][data-touch-pane=work] #work-view {
+    grid-template-columns:minmax(0,1fr) var(--tools);grid-template-rows:1fr auto;align-content:stretch;
+  }
+  .game-layout .camera[data-touch-pane=work][data-mode=work] #work-title {grid-area:2/2;white-space:normal;line-height:1.3;padding:4px;background:#302329;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] #work-steps {grid-area:1/2;align-self:end;display:grid;grid-template-columns:1fr 1fr;height:auto;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] .work-board {
+    grid-area:1/1/3/2; width:min(100%,calc((100dvh - 8px - env(safe-area-inset-bottom) - env(safe-area-inset-top))*12/7));
+    height:auto;max-height:100%;border:0;aspect-ratio:12/7;
+  }
+  .game-layout .camera[data-touch-pane=work][data-mode=work] #work-canvas {width:100%;height:auto;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] .touch-camera-tabs {
+    left:auto;right:max(4px,env(safe-area-inset-right));top:48px;width:var(--tools);height:auto;
+  }
+  .game-layout .camera[data-touch-pane=work][data-mode=work] [data-tabs=work] {display:grid;grid-template-columns:1fr 1fr;height:auto;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] [data-tabs=work] button {padding:2px;font-size:12px;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] [data-tabs=work] button:first-child {display:none;}
+  .game-layout .camera[data-touch-pane=work][data-mode=work] [data-tabs=work] .art-icon {width:20px;height:20px;flex-basis:20px;}
+}
+.game-layout .trade-speech #dialogue {color:#39271d;background:none;border:0;}
+.game-layout #counter-view .trade-choices button,
+.game-layout #counter-view #propose,
+.game-layout .touch-camera-tabs button {
+  border:4px solid #875a31;
+  border-image:url('dialogue-paper.png') 100 stretch;
+}
+@media (orientation:landscape) and (max-height:290px) {
+  .game-layout[data-page=map] #game-nav {grid-template-columns:repeat(3,minmax(44px,1fr));width:140px;}
+}
+.bench-closeup,.bench-tray{display:none}
+@media (orientation:landscape) {
+ .game-layout .camera[data-mode=work][data-touch-pane=work] #work-view {
+   grid-template-columns:minmax(0,1fr) clamp(212px,32vw,330px);
+   grid-template-rows:minmax(0,1fr);
+ }
+ .game-layout .camera[data-mode=work][data-touch-pane=work] .camera-shell {--tools:clamp(212px,32vw,330px)}
+ .game-layout .camera[data-mode=work][data-touch-pane=work] :is(.work-board,#work-title,#work-steps){display:none!important}
+ .game-layout .camera[data-mode=work][data-touch-pane=work] .bench-closeup {
+   display:grid;place-items:center;grid-area:1/1;min-width:0;min-height:0;overflow:hidden;
+   background:#5c613b url('workbench-background.png') center/cover;border:3px solid #7e593a;
+ }
+ .bench-closeup canvas{width:100%;height:100%;min-height:0;object-fit:contain;pointer-events:none;}
+ .game-layout .camera[data-mode=work][data-touch-pane=work] .bench-tray {
+   display:flex;flex-direction:column;justify-content:center;grid-area:1/2;align-self:stretch;
+   margin-top:100px;background:#302627f2;border:1px solid #987448;border-radius:7px;padding:6px;min-height:0;
+ }
+ #bench-hint{font-size:14px;line-height:1.25;color:#ffe5af;margin-bottom:4px;}
+ #bench-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+ #bench-choices button{min-width:0;min-height:50px;padding:3px;line-height:1.16;font-size:13px;background:#53412e;color:#fff4de;border:1px solid #c9a56e;touch-action:manipulation;}
+ #bench-choices button:only-child{grid-column:span 2}
+ #bench-choices button[aria-pressed=true]{background:#66703e;outline:2px solid #ffdf8d;outline-offset:-2px}
+ #bench-choices button canvas{display:inline-block;width:34px;height:34px;vertical-align:middle;pointer-events:none}
+}

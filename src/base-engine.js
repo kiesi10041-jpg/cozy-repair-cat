@@ -1,7 +1,7 @@
 (()=>{'use strict';
 // Collision uses furniture floor footprints, not the full painted silhouette.
 // Conservative visual footprints, with sprite half-width clearance at both sides.
-const blocks=[[12,140,116,120,25],[183,157,109,101,14],[326,139,172,26,15],[465,104,35,33,0],[417,193,39,47,20],[456,218,37,22,20],[470,170,27,50,20],[14,266,36,41,20],[361,285,20,57,13],[437,285,20,57,13]];
+const blocks=[[12,140,116,120,25],[183,157,109,101,14],[326,125,172,40,15],[465,104,35,33,0],[417,193,39,47,20],[456,218,37,22,20],[470,170,27,50,20],[14,266,36,41,20],[361,285,20,57,13],[437,285,20,57,13]];
 const floorAt=(x,y)=>(x>=24&&x<=488&&y>=119&&y<=306)||(x>=292&&x<=480&&y>=104&&y<=129)||(x>=395&&x<=423&&y>=306&&y<=338);
 const valid=(x,y)=>floorAt(x,y)&&!blocks.some(([a,b,w,h,pad=6])=>x>=a-pad&&x<=a+w+pad&&y>=b-2&&y<=b+h+8);
 const stations=[
@@ -13,7 +13,12 @@ const stations=[
  {id:'door',label:'왼쪽 문 앞',hit:[43,28,60,88],point:{x:75,y:126},face:'back'}
 ];
 const stationAt=(x,y)=>stations.find(s=>{const[a,b,w,h]=s.hit;return x>=a&&x<=a+w&&y>=b&&y<=b+h});
-function findPath(from,to){const start=[Math.round(from.x/2),Math.round(from.y/2)],end=[Math.round(to.x/2),Math.round(to.y/2)];if(!valid(end[0]*2,end[1]*2))return[];
+function findPath(from,to){// A previous save may place a player in the old walkway under the bell.
+ if(from.x>=311&&from.x<=500&&from.y>122&&from.y<137&&!valid(from.x,from.y)){
+   const exit={x:Math.min(460,from.x),y:122},rest=findPath(exit,to);
+   if(rest.length||Math.hypot(exit.x-to.x,exit.y-to.y)<1)return [exit,...rest];
+ }
+ const start=[Math.round(from.x/2),Math.round(from.y/2)],end=[Math.round(to.x/2),Math.round(to.y/2)];if(!valid(end[0]*2,end[1]*2))return[];
  const key=(x,y)=>y*256+x,queue=[start],seen=new Set([key(...start)]),prev=new Map();let found=false;
  for(let i=0;i<queue.length;i++){const c=queue[i];if(c[0]===end[0]&&c[1]===end[1]){found=true;break}for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const n=[c[0]+dx,c[1]+dy],k=key(...n);if(seen.has(k)||!valid(n[0]*2,n[1]*2))continue;seen.add(k);prev.set(k,c);queue.push(n)}}
  if(!found)return[];let n=end;const out=[];while(n[0]!==start[0]||n[1]!==start[1]){out.push({x:n[0]*2,y:n[1]*2});n=prev.get(key(...n))}return out.reverse();

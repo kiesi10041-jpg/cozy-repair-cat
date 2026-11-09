@@ -1,1 +1,38 @@
-{"name":"우리의 작은 수리점","short_name":"작은 수리점","start_url":"./","scope":"./","display":"standalone","orientation":"landscape","background_color":"#251f28","theme_color":"#302631","icons":[{"src":"assets/shop-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"},{"src":"assets/apple-touch-icon.png","sizes":"180x180","type":"image/png","purpose":"any"}]}
+{
+  "name": "우리의 작은 수리점",
+  "short_name": "작은 수리점",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#251f28",
+  "theme_color": "#302631",
+  "icons": [
+    {
+      "src": "assets/shop-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/shop-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/shop-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ]
+}
